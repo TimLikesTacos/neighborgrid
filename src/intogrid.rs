@@ -64,7 +64,7 @@ impl<T: Clone> IntoGrid<T> for (usize, usize, T) {
         let total = row_col_length_check(self.0, self.1)?;
         let items = vec![self.2; total];
         Ok(Grid {
-            items: items,
+            items,
             rows: self.1,
             cols: self.0,
             options: GridOptions::default(),
@@ -88,7 +88,7 @@ fn row_col_length_check(rows: usize, cols: usize) -> Result<usize, GridError> {
 fn _convert1d<T: Clone>(items: (&Vec<T>, usize)) -> Result<Grid<T>, GridError> {
     let total = row_col_length_check(items.1, items.0.len())?;
     let cols = items.0.len();
-    if cols == 0 || items.1 <= 0 {
+    if cols == 0 || items.1 == 0 {
         return Err(GridError::InvalidSize);
     }
     let mut vec = Vec::with_capacity(total);
@@ -121,7 +121,7 @@ mod grid_tests {
         }
 
         #[test]
-        fn should_error_on_uneven_rows() -> () {
+        fn should_error_on_uneven_rows() {
             let mut vec = simple2d();
             vec[2].push(10);
             let grid = vec.into_grid();

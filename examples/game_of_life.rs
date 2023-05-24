@@ -171,7 +171,7 @@ fn main() {
 
     assert_eq!(
         grid,
-        Grid::new(eleventh_gen_expected, Some(gridoptions.clone())).unwrap()
+        Grid::new(eleventh_gen_expected, Some(gridoptions)).unwrap()
     );
 }
 
@@ -179,7 +179,6 @@ fn next_generation(grid: &mut Grid<LifeStage>) {
     use LifeStage::*;
 
     let next_stage: Vec<_> = (0..grid.size())
-        .into_iter()
         .map(|i| {
             let neighbors = grid.all_around_neighbors(i).unwrap();
             let count = neighbors

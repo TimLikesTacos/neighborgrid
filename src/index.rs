@@ -92,9 +92,9 @@ pub(crate) fn xy_to_index<T>(grid: &Grid<T>, x: isize, y: isize) -> usize {
 #[inline]
 fn adjust_from_origin<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
     match grid.origin() {
-        Origin::UpperLeft => convert_upper_left(&grid, x, y),
-        Origin::Center => convert_center(&grid, x, y),
-        Origin::LowerLeft => convert_lower_left(&grid, x, y),
+        Origin::UpperLeft => convert_upper_left(grid, x, y),
+        Origin::Center => convert_center(grid, x, y),
+        Origin::LowerLeft => convert_lower_left(grid, x, y),
     }
 }
 
@@ -102,12 +102,12 @@ fn adjust_from_origin<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
 #[inline]
 fn adjust_to_origin<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
     match grid.origin() {
-        Origin::UpperLeft => convert_upper_left(&grid, x, y),
+        Origin::UpperLeft => convert_upper_left(grid, x, y),
         Origin::Center => {
-            let (tx, ty) = convert_center(&grid, -x, y);
+            let (tx, ty) = convert_center(grid, -x, y);
             (-tx, ty)
         }
-        Origin::LowerLeft => convert_lower_left(&grid, x, y),
+        Origin::LowerLeft => convert_lower_left(grid, x, y),
     }
 }
 

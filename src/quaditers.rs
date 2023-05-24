@@ -25,7 +25,7 @@ impl<'a, T> NrantIterator<'a, T> {
     /// Creates a condition that will appear that the iterator has ended.
     pub(crate) fn noop(grid: &'a Grid<T>) -> Self {
         NrantIterator {
-            grid: grid,
+            grid,
             current: 100,
             start: 0,
             rwidth: 1,

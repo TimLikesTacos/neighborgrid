@@ -13,13 +13,13 @@ impl<'a, T> Iterator for ColIter<'a, T> {
 
 impl<'a, T> ColIter<'a, T> {
     pub(crate) fn new(grid: &'a Grid<T>, index: usize) -> ColIter<'a, T> {
-        let col_start = crate::grid::col_start_index(&grid, index);
+        let col_start = crate::grid::col_start_index(grid, index);
         ColIter {
             slice: grid
                 .items
                 .iter()
                 .skip(col_start)
-                .step_by(grid.cols as usize),
+                .step_by(grid.cols),
         }
     }
 
@@ -43,13 +43,13 @@ impl<'a, T> Iterator for MutColIter<'a, T> {
 
 impl<'a, T> MutColIter<'a, T> {
     pub(crate) fn new(grid: &'a mut Grid<T>, index: usize) -> MutColIter<'a, T> {
-        let col_start = crate::grid::col_start_index(&grid, index);
+        let col_start = crate::grid::col_start_index(grid, index);
         MutColIter {
             slice: grid
                 .items
                 .iter_mut()
                 .skip(col_start)
-                .step_by(grid.cols as usize),
+                .step_by(grid.cols),
         }
     }
 

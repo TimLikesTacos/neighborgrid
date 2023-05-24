@@ -8,6 +8,7 @@ license = "MIT"
 keywords = ["grid", "collection", "iterators", "2d"]
 categories = ["data-structures"]
 publish = true
+repository = "https://github.com/TimLikesTacos/neighborgrid"
 
 
 [dependencies]

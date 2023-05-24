@@ -96,7 +96,7 @@ impl<T> Grid<T> {
 
     /// Returns a immutable reference to the value stored in the specified cell.  None if outside the grid bounds
     pub fn get<I: Index>(&self, index: I) -> Option<&T> {
-        if let Ok(index) = index.grid_index(&self) {
+        if let Ok(index) = index.grid_index(self) {
             Some(&self.items[index])
         } else {
             None
@@ -126,7 +126,7 @@ impl<T> Grid<T> {
     /// assert_eq!(middle_cell, &mut 8);
     /// ```
     pub fn get_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
-        if let Ok(index) = index.grid_index(&self) {
+        if let Ok(index) = index.grid_index(self) {
             Some(&mut self.items[index])
         } else {
             None
@@ -330,12 +330,10 @@ impl<T> Grid<T> {
         let res = index + self.cols;
         if res < self.size() {
             Ok(res)
+        } else if self.options.wrap_y {
+            Ok(res - self.size())
         } else {
-            if self.options.wrap_y {
-                Ok(res - self.size())
-            } else {
-                Err(GridError::IndexOutOfBounds)
-            }
+            Err(GridError::IndexOutOfBounds)
         }
     }
 
@@ -433,12 +431,6 @@ impl<T> Grid<T> {
         self.items.iter()
     }
 
-    /// Iterates over all elements
-    #[inline]
-    pub fn into_iter(self) -> impl Iterator<Item = T> {
-        self.items.into_iter()
-    }
-
     /// Mutable iterator over all elements
     #[inline]
     pub fn iter_mut<'b, 'a: 'b>(&'a mut self) -> impl Iterator<Item = &'a mut T> + 'b {
@@ -523,7 +515,7 @@ impl<T> Grid<T> {
     /// assert_eq!(iter.next(), None)
     ///```
     pub fn row_iter<'b, 'a: 'b, I: Index>(&'a self, index: I) -> RowIter<'b, T> {
-        let res = index.grid_index(&self);
+        let res = index.grid_index(self);
         // Noop coverts invalid grid location Result into an iterator that returns None right way
         match res {
             Ok(i) => RowIter::new(self, i),
@@ -557,7 +549,7 @@ impl<T> Grid<T> {
     /// assert_eq!(iter.next(), None)
     ///```
     pub fn col_iter<'b, 'a: 'b, I: Index>(&'a self, index: I) -> ColIter<'b, T> {
-        let res = index.grid_index(&self);
+        let res = index.grid_index(self);
         // Noop coverts invalid grid location Result into an iterator that returns None right way
         match res {
             Ok(i) => ColIter::new(self, i),
@@ -569,11 +561,12 @@ impl<T> Grid<T> {
     pub fn swap<I: Index>(&mut self, a: I, b: I) -> Result<(), GridError> {
         let a = a.grid_index(self)?;
         let b = b.grid_index(self)?;
-        Ok(self.items.swap(a, b))
+        self.items.swap(a, b);
+        Ok(())
     }
 
     pub fn row_iter_mut<'b, 'a: 'b, I: Index>(&'a mut self, index: I) -> MutRowIter<'b, T> {
-        let res = index.grid_index(&self);
+        let res = index.grid_index(self);
         // Noop coverts invalid grid location Result into an iterator that returns None right way
         match res {
             Ok(i) => MutRowIter::new(self, i),
@@ -582,7 +575,7 @@ impl<T> Grid<T> {
     }
 
     pub fn col_iter_mut<'b, 'a: 'b, I: Index>(&'a mut self, index: I) -> MutColIter<'b, T> {
-        let res = index.grid_index(&self);
+        let res = index.grid_index(self);
         // Noop coverts invalid grid location Result into an iterator that returns None right way
         match res {
             Ok(i) => MutColIter::new(self, i),
@@ -626,7 +619,7 @@ impl<T> Grid<T> {
         divisor: usize,
         index: I,
     ) -> NrantIterator<'b, T> {
-        let res = index.grid_index(&self);
+        let res = index.grid_index(self);
         // Noop coverts invalid grid location Result into an iterator that returns None right way
         match res {
             Ok(i) => NrantIterator::new(self, divisor, i),
@@ -682,7 +675,7 @@ impl<T> Grid<T> {
     /// assert_eq!(neighbors.right, Some(&13));
     ///```
     pub fn xy_neighbors<I: Index>(&self, index: I) -> Result<XyNeighbor<'_, T>, GridError> {
-        let index = index.grid_index(&self)?;
+        let index = index.grid_index(self)?;
         Ok(XyNeighbor {
             up: self.get_up(index),
             down: self.get_down(index),
@@ -756,7 +749,7 @@ impl<T> Grid<T> {
         &self,
         index: I,
     ) -> Result<AllAroundNeighbor<'_, T>, GridError> {
-        let index = index.grid_index(&self)?;
+        let index = index.grid_index(self)?;
         Ok(AllAroundNeighbor {
             upleft: self.get_upleft(index),
             up: self.get_up(index),
@@ -789,15 +782,15 @@ impl<T> Grid<T> {
 }
 
 pub(crate) fn row_number<T>(grid: &Grid<T>, index: usize) -> usize {
-    index / grid.cols as usize
+    index / grid.cols
 }
 
 pub(crate) fn col_number<T>(grid: &Grid<T>, index: usize) -> usize {
-    index % grid.cols as usize
+    index % grid.cols
 }
 
 pub(crate) fn row_start_index<T>(grid: &Grid<T>, index: usize) -> usize {
-    row_number(grid, index) * grid.cols as usize
+    row_number(grid, index) * grid.cols
 }
 
 pub(crate) fn col_start_index<T>(grid: &Grid<T>, index: usize) -> usize {

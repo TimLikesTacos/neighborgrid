@@ -13,8 +13,8 @@ impl<'a, T> Iterator for RowIter<'a, T> {
 
 impl<'a, T> RowIter<'a, T> {
     pub(crate) fn new(grid: &'a Grid<T>, index: usize) -> RowIter<'a, T> {
-        let row_start = crate::grid::row_start_index(&grid, index);
-        let slice = &grid.items[row_start..row_start + grid.cols as usize];
+        let row_start = crate::grid::row_start_index(grid, index);
+        let slice = &grid.items[row_start..row_start + grid.cols];
         RowIter {
             slice: slice.iter(),
         }
@@ -38,8 +38,8 @@ impl<'a, T> Iterator for MutRowIter<'a, T> {
 
 impl<'a, T> MutRowIter<'a, T> {
     pub(crate) fn new(grid: &'a mut Grid<T>, index: usize) -> MutRowIter<'a, T> {
-        let row_start = crate::grid::row_start_index(&grid, index);
-        let slice = &mut grid.items[row_start..row_start + grid.cols as usize];
+        let row_start = crate::grid::row_start_index(grid, index);
+        let slice = &mut grid.items[row_start..row_start + grid.cols];
         MutRowIter {
             slice: slice.iter_mut(),
         }

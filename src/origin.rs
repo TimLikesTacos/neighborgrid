@@ -49,7 +49,7 @@ impl Origin {
     #[inline]
     pub(crate) fn min_x<T>(&self, grid: &Grid<T>) -> isize {
         match self {
-            Origin::Center => (grid.cols as isize / 2) * -1,
+            Origin::Center => -(grid.cols as isize / 2),
             Origin::LowerLeft | Origin::UpperLeft => 0,
         }
     }
@@ -66,9 +66,9 @@ impl Origin {
     #[inline]
     pub(crate) fn min_y<T>(&self, grid: &Grid<T>) -> isize {
         match self {
-            Origin::Center => (grid.rows as isize / 2) * -1,
+            Origin::Center => -(grid.rows as isize / 2),
             Origin::LowerLeft => 0,
-            Origin::UpperLeft => -1 * grid.rows as isize,
+            Origin::UpperLeft => -(grid.rows as isize),
         }
     }
 }
