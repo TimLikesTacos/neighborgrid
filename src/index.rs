@@ -6,15 +6,13 @@ pub trait Index {
     fn output<T>(index: usize, grid: &Grid<T>) -> Self;
 }
 
-#[derive(Clone)]
-pub struct Coordinates
-{
-    x: i32,
-    y: i32,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Coordinates {
+    pub x: i32,
+    pub y: i32,
 }
 
-impl Index for Coordinates
-{
+impl Index for Coordinates {
     fn grid_index<T>(self, grid: &Grid<T>) -> Result<usize, GridError> {
         let y = invert_y(grid, self.y);
         bounds_check(grid, self.x, y)?;
@@ -22,19 +20,16 @@ impl Index for Coordinates
     }
 
     fn output<T>(index: usize, grid: &Grid<T>) -> Self {
-        let (x, y) = (index as i32 % grid.cols, index as i32 / grid.cols) ;
+        let (x, y) = (index as i32 % grid.cols, index as i32 / grid.cols);
         let (x, y) = adjust_to_origin(grid, x, y);
         let y = invert_y(grid, y);
-        Coordinates {
-            x,
-            y
-        }
+        Coordinates { x, y }
     }
 }
 
 impl Index for usize {
     fn grid_index<T>(self, grid: &Grid<T>) -> Result<usize, GridError> {
-        if self <  grid.size() {
+        if self < grid.size() {
             Ok(self)
         } else {
             Err(GridError::IndexOutOfBounds)
@@ -46,23 +41,22 @@ impl Index for usize {
     }
 }
 
-impl Index for (i32, i32)
-{
+impl Index for (i32, i32) {
     fn grid_index<T>(self, grid: &Grid<T>) -> Result<usize, GridError> {
         let y = invert_y(grid, self.1);
         bounds_check(grid, self.0, y)?;
-        Ok(xy_to_index(grid,self.0, y))
+        Ok(xy_to_index(grid, self.0, y))
     }
 
     fn output<T>(index: usize, grid: &Grid<T>) -> Self {
-        let (x, y) = (index as i32% grid.cols, index as i32/ grid.cols) ;
+        let (x, y) = (index as i32 % grid.cols, index as i32 / grid.cols);
         let (x, y) = adjust_to_origin(grid, x, y);
         let y = invert_y(grid, y);
         (x, y)
     }
 }
 
-impl <S: Index + Clone> Index for &S {
+impl<S: Index + Clone> Index for &S {
     fn grid_index<T>(self, grid: &Grid<T>) -> Result<usize, GridError> {
         S::grid_index(self.clone(), grid)
     }
@@ -84,13 +78,12 @@ fn invert_y<T>(grid: &Grid<T>, y: i32) -> i32 {
     }
 }
 
-fn bounds_check<T>(grid: &Grid<T>, x: i32, y:i32) -> Result<(), GridError>{
-
+fn bounds_check<T>(grid: &Grid<T>, x: i32, y: i32) -> Result<(), GridError> {
     let bool = match grid.origin() {
         Origin::UpperLeft => x >= 0 && x < grid.cols && y <= 0 && y > -grid.rows,
-        Origin::UpperRight => x > -grid.cols && x <= 0 && y<= 0 && y > -grid.rows,
-        Origin::LowerLeft => x >=0 && x < grid.cols && y >= 0 && y < grid.rows,
-        Origin::LowerRight => x <= 0 && x > -grid.cols && y >= 0 && y <grid.rows,
+        Origin::UpperRight => x > -grid.cols && x <= 0 && y <= 0 && y > -grid.rows,
+        Origin::LowerLeft => x >= 0 && x < grid.cols && y >= 0 && y < grid.rows,
+        Origin::LowerRight => x <= 0 && x > -grid.cols && y >= 0 && y < grid.rows,
         Origin::Center => {
             let x_offset = grid.cols / 2 + 1;
             let y_offset = grid.rows / 2 + 1;
@@ -107,8 +100,7 @@ fn bounds_check<T>(grid: &Grid<T>, x: i32, y:i32) -> Result<(), GridError>{
 
 // Index is UpperLeft row dominate indexing.  This will take the x, y coordinate and convert to vec index
 // No bounds checking
-pub(crate) fn xy_to_index<T>(grid: &Grid<T>, x: i32, y: i32) -> usize
-{
+pub(crate) fn xy_to_index<T>(grid: &Grid<T>, x: i32, y: i32) -> usize {
     let x = i32::from(x);
     let y = i32::from(y);
 
@@ -121,37 +113,36 @@ pub(crate) fn xy_to_index<T>(grid: &Grid<T>, x: i32, y: i32) -> usize
 
 /// Take a (x, y) and adjust it to be the internal vec perspective of 0,0 in the upper left with inverted y axis
 #[inline]
-fn adjust_from_origin<T>(grid: &Grid<T>, x: i32, y: i32) -> (i32, i32){
+fn adjust_from_origin<T>(grid: &Grid<T>, x: i32, y: i32) -> (i32, i32) {
     match grid.origin() {
         Origin::UpperLeft => convert_upper_left(&grid, x, y),
         Origin::UpperRight => convert_upper_right(&grid, x, y),
         Origin::Center => convert_center(&grid, x, y),
         Origin::LowerLeft => convert_lower_left(&grid, x, y),
-        Origin::LowerRight=> convert_lower_right(&grid, x, y),
+        Origin::LowerRight => convert_lower_right(&grid, x, y),
     }
 }
 
 /// Take a (x, y) based on a upper left inverted y axis and adjust it based on the origin
 #[inline]
-fn adjust_to_origin<T>(grid: &Grid<T>, x: i32, y: i32) -> (i32, i32){
+fn adjust_to_origin<T>(grid: &Grid<T>, x: i32, y: i32) -> (i32, i32) {
     match grid.origin() {
         Origin::UpperLeft => convert_upper_left(&grid, x, y),
         Origin::UpperRight => {
             let (tx, ty) = convert_upper_right(&grid, -x, y);
             (-tx, ty)
-        },
+        }
         Origin::Center => {
             let (tx, ty) = convert_center(&grid, -x, y);
             (-tx, ty)
-        },
+        }
         Origin::LowerLeft => convert_lower_left(&grid, x, y),
-        Origin::LowerRight=> {
-            let(x, y) = convert_lower_right(&grid, -x, y);
+        Origin::LowerRight => {
+            let (x, y) = convert_lower_right(&grid, -x, y);
             (-x, y)
-        },
+        }
     }
 }
-
 
 #[inline]
 fn convert_center<T>(grid: &Grid<T>, x: i32, y: i32) -> (i32, i32) {
@@ -162,12 +153,12 @@ fn convert_center<T>(grid: &Grid<T>, x: i32, y: i32) -> (i32, i32) {
 
 #[inline]
 fn convert_upper_left<T>(_grid: &Grid<T>, x: i32, y: i32) -> (i32, i32) {
-    (x , -y)
+    (x, -y)
 }
 
 #[inline]
 fn convert_upper_right<T>(grid: &Grid<T>, x: i32, y: i32) -> (i32, i32) {
-    (x + (grid.cols -1), -y)
+    (x + (grid.cols - 1), -y)
 }
 
 #[inline]
@@ -182,36 +173,42 @@ fn convert_lower_right<T>(grid: &Grid<T>, x: i32, y: i32) -> (i32, i32) {
 
 #[cfg(test)]
 mod index_tests {
-    use crate::grid::GridOptions;
     use super::*;
+    use crate::grid::GridOptions;
 
     type Result<T> = std::result::Result<T, GridError>;
 
-    fn basic_grid() -> Grid<i32>{
+    fn basic_grid() -> Grid<i32> {
         Grid {
             items: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
             rows: 4,
             cols: 3,
-            options: None
+            options: None,
         }
     }
 
-    fn center_origin() -> Grid<i32>{
+    fn center_origin() -> Grid<i32> {
         let mut grid = basic_grid();
         grid.items.append(&mut vec![12, 13, 14]);
         grid.rows += 1;
-        grid.options = Some(GridOptions{origin: Origin::Center, ..GridOptions::default()});
+        grid.options = Some(GridOptions {
+            origin: Origin::Center,
+            ..GridOptions::default()
+        });
         grid
     }
 
     fn origin_grid(origin: Origin) -> Grid<i32> {
         let mut grid = basic_grid();
-        grid.options = Some(GridOptions{origin, ..GridOptions::default()});
+        grid.options = Some(GridOptions {
+            origin,
+            ..GridOptions::default()
+        });
         grid
     }
 
     #[test]
-    fn default_origin () {
+    fn default_origin() {
         let grid = basic_grid();
         assert_eq!(grid.origin(), Origin::UpperLeft);
     }
@@ -233,7 +230,7 @@ mod index_tests {
     }
 
     #[test]
-    fn upperleft_xy () {
+    fn upperleft_xy() {
         let grid = origin_grid(Origin::UpperLeft);
         let (x, y) = adjust_from_origin(&grid, 0, 0);
         assert_eq!(x, 0);
@@ -245,7 +242,7 @@ mod index_tests {
     }
 
     #[test]
-    fn upperright_xy () {
+    fn upperright_xy() {
         let grid = origin_grid(Origin::UpperRight);
         let (x, y) = adjust_from_origin(&grid, 0, 0);
         assert_eq!(x, 2);
@@ -257,7 +254,7 @@ mod index_tests {
     }
 
     #[test]
-    fn lowerleft_xy () {
+    fn lowerleft_xy() {
         let grid = origin_grid(Origin::LowerLeft);
         let (x, y) = adjust_from_origin(&grid, 0, 0);
         assert_eq!(x, 0);
@@ -269,7 +266,7 @@ mod index_tests {
     }
 
     #[test]
-    fn lowerright_xy () {
+    fn lowerright_xy() {
         let grid = origin_grid(Origin::LowerRight);
         let (x, y) = adjust_from_origin(&grid, 0, 0);
         assert_eq!(x, 2);
@@ -283,30 +280,30 @@ mod index_tests {
     #[test]
     fn xy_to_index_test() {
         let grid = basic_grid();
-        let index = xy_to_index(&grid,1, -2);
+        let index = xy_to_index(&grid, 1, -2);
         assert_eq!(index, 7);
 
-        let index = xy_to_index(&grid,3,-2);
+        let index = xy_to_index(&grid, 3, -2);
         assert_eq!(index, 9);
     }
 
     #[test]
     fn xy_to_index_center() {
         let grid = center_origin();
-        let index = xy_to_index(&grid,1, 2);
+        let index = xy_to_index(&grid, 1, 2);
         assert_eq!(index, 2);
 
-        let index = xy_to_index(&grid,-1,-2);
+        let index = xy_to_index(&grid, -1, -2);
         assert_eq!(index, 12);
     }
 
     #[test]
-    fn should_err_on_outofbounds () {
+    fn should_err_on_outofbounds() {
         let grid = center_origin();
         let index = (2, 0).grid_index(&grid);
         assert!(matches!(index, Err(GridError::IndexOutOfBounds)));
 
-        let index = Coordinates{x: -3, y: 0}.grid_index(&grid);
+        let index = Coordinates { x: -3, y: 0 }.grid_index(&grid);
         assert!(matches!(index, Err(GridError::IndexOutOfBounds)));
 
         let index = (1, 0).grid_index(&grid);
@@ -314,27 +311,27 @@ mod index_tests {
     }
 
     #[test]
-    fn should_convert_index_upperleft() -> Result<()>{
+    fn should_convert_index_upperleft() -> Result<()> {
         let mut grid = origin_grid(Origin::UpperLeft);
         let index = (0, 0).grid_index(&grid)?;
-         assert_eq!(grid.items[index], 0);
+        assert_eq!(grid.items[index], 0);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 1);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (1,0));
+        assert_eq!(output, (1, 0));
 
         let index = (0, -1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 3);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,-1));
+        assert_eq!(output, (0, -1));
 
         let index = (2, -3).grid_index(&grid)?;
         assert_eq!(grid.items[index], 11);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (2,-3));
+        assert_eq!(output, (2, -3));
 
         let mut options = grid.options.unwrap().clone();
         options.inverted_y = true;
@@ -343,48 +340,48 @@ mod index_tests {
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 0);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 1);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (1,0));
+        assert_eq!(output, (1, 0));
 
         let index = (0, 1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 3);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,1));
+        assert_eq!(output, (0, 1));
 
         let index = (2, 3).grid_index(&grid)?;
         assert_eq!(grid.items[index], 11);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (2,3));
+        assert_eq!(output, (2, 3));
 
         Ok(())
     }
 
     #[test]
-    fn should_convert_index_upperright() -> Result<()>{
+    fn should_convert_index_upperright() -> Result<()> {
         let mut grid = origin_grid(Origin::UpperRight);
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 2);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (-1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 1);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-1,0));
+        assert_eq!(output, (-1, 0));
 
         let index = (0, -1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 5);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,-1));
+        assert_eq!(output, (0, -1));
 
         let index = (-2, -3).grid_index(&grid)?;
         assert_eq!(grid.items[index], 9);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-2,-3));
+        assert_eq!(output, (-2, -3));
 
         let mut options = grid.options.unwrap().clone();
         options.inverted_y = true;
@@ -393,48 +390,48 @@ mod index_tests {
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 2);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (-1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 1);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-1,0));
+        assert_eq!(output, (-1, 0));
 
         let index = (0, 1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 5);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,1));
+        assert_eq!(output, (0, 1));
 
         let index = (-2, 3).grid_index(&grid)?;
         assert_eq!(grid.items[index], 9);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-2,3));
+        assert_eq!(output, (-2, 3));
 
         Ok(())
     }
 
     #[test]
-    fn should_convert_index_lowerleft() -> Result<()>{
+    fn should_convert_index_lowerleft() -> Result<()> {
         let mut grid = origin_grid(Origin::LowerLeft);
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 9);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 10);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (1,0));
+        assert_eq!(output, (1, 0));
 
         let index = (0, 1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 6);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,1));
+        assert_eq!(output, (0, 1));
 
         let index = (2, 3).grid_index(&grid)?;
         assert_eq!(grid.items[index], 2);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (2,3));
+        assert_eq!(output, (2, 3));
 
         let mut options = grid.options.unwrap().clone();
         options.inverted_y = true;
@@ -443,48 +440,48 @@ mod index_tests {
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 9);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 10);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (1,0));
+        assert_eq!(output, (1, 0));
 
         let index = (0, -1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 6);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,-1));
+        assert_eq!(output, (0, -1));
 
         let index = (2, -3).grid_index(&grid)?;
         assert_eq!(grid.items[index], 2);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (2,-3));
+        assert_eq!(output, (2, -3));
 
         Ok(())
     }
 
     #[test]
-    fn should_convert_index_lowerright() -> Result<()>{
+    fn should_convert_index_lowerright() -> Result<()> {
         let mut grid = origin_grid(Origin::LowerRight);
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 11);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (-1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 10);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-1,0));
+        assert_eq!(output, (-1, 0));
 
         let index = (0, 1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 8);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,1));
+        assert_eq!(output, (0, 1));
 
         let index = (-2, 3).grid_index(&grid)?;
         assert_eq!(grid.items[index], 0);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-2,3));
+        assert_eq!(output, (-2, 3));
 
         let mut options = grid.options.unwrap().clone();
         options.inverted_y = true;
@@ -493,48 +490,48 @@ mod index_tests {
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 11);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (-1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 10);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-1,0));
+        assert_eq!(output, (-1, 0));
 
         let index = (0, -1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 8);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,-1));
+        assert_eq!(output, (0, -1));
 
         let index = (-2, -3).grid_index(&grid)?;
         assert_eq!(grid.items[index], 0);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-2,-3));
+        assert_eq!(output, (-2, -3));
 
         Ok(())
     }
 
     #[test]
-    fn should_convert_index_center() -> Result<()>{
+    fn should_convert_index_center() -> Result<()> {
         let mut grid = center_origin();
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 7);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (-1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 6);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-1,0));
+        assert_eq!(output, (-1, 0));
 
         let index = (0, 1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 4);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,1));
+        assert_eq!(output, (0, 1));
 
         let index = (-1, 2).grid_index(&grid)?;
         assert_eq!(grid.items[index], 0);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-1,2));
+        assert_eq!(output, (-1, 2));
 
         let mut options = grid.options.unwrap().clone();
         options.inverted_y = true;
@@ -543,22 +540,22 @@ mod index_tests {
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 7);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,0));
+        assert_eq!(output, (0, 0));
 
         let index = (-1, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 6);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-1,0));
+        assert_eq!(output, (-1, 0));
 
         let index = (0, -1).grid_index(&grid)?;
         assert_eq!(grid.items[index], 4);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (0,-1));
+        assert_eq!(output, (0, -1));
 
         let index = (-1, -2).grid_index(&grid)?;
         assert_eq!(grid.items[index], 0);
         let output: (i32, i32) = Index::output(index, &grid);
-        assert_eq!(output, (-1,-2));
+        assert_eq!(output, (-1, -2));
 
         Ok(())
     }
@@ -567,13 +564,13 @@ mod index_tests {
     fn coodinate_index() -> Result<()> {
         let mut grid = center_origin();
         let index = (0, 0).grid_index(&grid)?;
-        let cord_index = Coordinates{x: 0, y: 0}.grid_index(&grid)?;
+        let cord_index = Coordinates { x: 0, y: 0 }.grid_index(&grid)?;
         assert_eq!(index, cord_index);
 
         let index = (-1, 2).grid_index(&grid)?;
-        let cord_index = Coordinates{x: -1, y: 2}.grid_index(&grid)?;
+        let cord_index = Coordinates { x: -1, y: 2 }.grid_index(&grid)?;
 
-        let cord_index = Coordinates{x: -2, y: 2}.grid_index(&grid);
+        let cord_index = Coordinates { x: -2, y: 2 }.grid_index(&grid);
         assert!(matches!(cord_index, Err(GridError::IndexOutOfBounds)));
         Ok(())
     }

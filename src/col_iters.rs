@@ -1,6 +1,6 @@
 use crate::grid::Grid;
 
-pub(crate) struct ColIter<'a, T> {
+pub struct ColIter<'a, T> {
     pub(crate) slice: std::iter::StepBy<std::iter::Skip<std::slice::Iter<'a, T>>>,
 }
 
@@ -22,9 +22,15 @@ impl<'a, T> ColIter<'a, T> {
                 .step_by(grid.cols as usize),
         }
     }
+
+    pub(crate) fn noop() -> ColIter<'a, T> {
+        ColIter {
+            slice: [].iter().skip(0).step_by(1),
+        }
+    }
 }
 
-pub(crate) struct MutColIter<'a, T> {
+pub struct MutColIter<'a, T> {
     pub(crate) slice: std::iter::StepBy<std::iter::Skip<std::slice::IterMut<'a, T>>>,
 }
 
@@ -44,6 +50,12 @@ impl<'a, T> MutColIter<'a, T> {
                 .iter_mut()
                 .skip(col_start)
                 .step_by(grid.cols as usize),
+        }
+    }
+
+    pub(crate) fn noop() -> MutColIter<'a, T> {
+        MutColIter {
+            slice: [].iter_mut().skip(0).step_by(1),
         }
     }
 }

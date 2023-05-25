@@ -1,6 +1,8 @@
+mod col_iters;
 mod error;
-mod index;
 mod grid;
+mod index;
 mod intogrid;
 mod row_iters;
-mod col_iters;
+
+pub use grid::{Grid, GridOptions, Origin};

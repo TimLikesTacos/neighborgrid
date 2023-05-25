@@ -1,57 +1,75 @@
 use crate::grid::Grid;
 use crate::index::Index;
 
-pub (crate) struct RowIter<'a, T> {
-    pub(crate) slice: std::slice::Iter<'a, T>
+pub struct RowIter<'a, T> {
+    pub(crate) slice: std::slice::Iter<'a, T>,
 }
 
-impl <'a, T> Iterator for RowIter<'a, T> {
+impl<'a, T> Iterator for RowIter<'a, T> {
     type Item = &'a T;
-    fn next(& mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Option<Self::Item> {
         self.slice.next()
     }
 }
 
-impl <'a, T> RowIter<'a, T> {
+impl<'a, T> RowIter<'a, T> {
     pub(crate) fn new(grid: &'a Grid<T>, index: usize) -> RowIter<'a, T> {
         let row_start = crate::grid::row_start_index(&grid, index);
         let slice = &grid.items[row_start..row_start + grid.cols as usize];
         RowIter {
-            slice: slice.iter()
+            slice: slice.iter(),
         }
+    }
+
+    pub(crate) fn noop() -> RowIter<'a, T> {
+        RowIter { slice: [].iter() }
     }
 }
 
-pub (crate) struct MutRowIter<'a, T> {
+pub struct MutRowIter<'a, T> {
     pub(crate) slice: std::slice::IterMut<'a, T>,
 }
 
-impl <'a,  T> Iterator for MutRowIter<'a, T> {
+impl<'a, T> Iterator for MutRowIter<'a, T> {
     type Item = &'a mut T;
     fn next(&mut self) -> Option<Self::Item> {
         self.slice.next()
     }
 }
 
-impl <'a, T> MutRowIter<'a, T> {
+impl<'a, T> MutRowIter<'a, T> {
     pub(crate) fn new(grid: &'a mut Grid<T>, index: usize) -> MutRowIter<'a, T> {
         let row_start = crate::grid::row_start_index(&grid, index);
         let slice = &mut grid.items[row_start..row_start + grid.cols as usize];
         MutRowIter {
-            slice: slice.iter_mut()
+            slice: slice.iter_mut(),
+        }
+    }
+
+    pub(crate) fn noop() -> MutRowIter<'a, T> {
+        MutRowIter {
+            slice: [].iter_mut(),
         }
     }
 }
 
-
 #[cfg(test)]
 mod iter_tests {
-    use crate::grid::{GridOptions, Origin};
     use super::*;
+    use crate::grid::{GridOptions, Origin};
 
     fn center_grid() -> Grid<i32> {
-        let vec = vec![vec![0, 1, 2], vec![3, 4, 5], vec![6, 7, 8], vec![9, 10, 11], vec![12, 13, 14]];
-        let gridoptions = GridOptions {origin: Origin::Center, ..GridOptions::default()};
+        let vec = vec![
+            vec![0, 1, 2],
+            vec![3, 4, 5],
+            vec![6, 7, 8],
+            vec![9, 10, 11],
+            vec![12, 13, 14],
+        ];
+        let gridoptions = GridOptions {
+            origin: Origin::Center,
+            ..GridOptions::default()
+        };
         let grid = Grid::new(vec, Some(gridoptions));
         grid.unwrap()
     }
@@ -106,9 +124,7 @@ mod iter_tests {
             assert_eq!(iter.next(), Some(&mut 6));
             assert_eq!(iter.next(), None);
         }
-
     }
-
 }
 // pub(crate) struct GridIter<'a, T, C>
 // where

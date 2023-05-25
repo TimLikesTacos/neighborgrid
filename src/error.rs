@@ -9,14 +9,13 @@ pub enum GridError {
     ExcessiveSize,
 }
 
-
 impl Display for GridError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             GridError::IndexOutOfBounds => write!(f, "Index out of bounds"),
             GridError::RowSizeMismatch => write!(f, "Row size must match other rows"),
             GridError::InvalidSize => write!(f, "Invalid grid size"),
-            GridError::ExcessiveSize => write!(f, "Resulting grid is too large")
+            GridError::ExcessiveSize => write!(f, "Resulting grid is too large"),
         }
     }
 }

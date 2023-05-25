@@ -1,6 +1,8 @@
+use crate::col_iters::{ColIter, MutColIter};
 use crate::error::GridError;
-use crate::index::Index;
+use crate::index::{Coordinates, Index};
 use crate::intogrid::IntoGrid;
+use crate::row_iters::{MutRowIter, RowIter};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Grid<T> {
     pub(crate) items: Vec<T>,
@@ -23,6 +25,12 @@ pub enum Origin {
     Center,
     LowerLeft,
     LowerRight,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Neighbor<'a, T> {
+    pub value: &'a T,
+    pub location: Coordinates,
 }
 
 impl<T> Grid<T> {
@@ -65,12 +73,154 @@ impl<T> Grid<T> {
         }
     }
 
+    fn _get(&self, index: usize) -> Option<&T> {
+        self.items.get(index)
+    }
+
+    fn _get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.items.get_mut(index)
+    }
+
     pub fn iter<'b, 'a: 'b>(&'a self) -> impl Iterator<Item = &'a T> + 'b {
         self.items.iter()
     }
 
     pub fn iter_mut<'b, 'a: 'b>(&'a mut self) -> impl Iterator<Item = &'a mut T> + 'b {
         self.items.iter_mut()
+    }
+
+    /// Returns an iterator starting from the beginning of the row that the passed in index is on
+    /// ```
+    /// use neighborgrid::*;
+    /// let vec = vec![
+    ///             vec![0, 1, 2],
+    ///             vec![3, 4, 5],
+    ///             vec![6, 7, 8],
+    ///             vec![9, 10, 11],
+    ///             vec![12, 13, 14],
+    /// ];
+    /// let gridoptions = GridOptions {
+    ///        origin: Origin::Center,
+    ///         ..GridOptions::default()
+    /// };
+    /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
+    ///
+    /// let mut iter = grid.row_iter((0, 1));
+    /// assert_eq!(iter.next(), Some(&3));
+    /// assert_eq!(iter.next(), Some(&4));
+    /// assert_eq!(iter.next(), Some(&5));
+    /// assert_eq!(iter.next(), None)
+    ///```
+
+    pub fn row_iter<'b, 'a: 'b, I: Index>(&'a self, index: I) -> RowIter<'b, T> {
+        let res = index.grid_index(&self);
+        // Noop coverts invalid grid location Result into an iterator that returns None right way
+        match res {
+            Ok(i) => RowIter::new(self, i),
+            Err(_) => RowIter::noop(),
+        }
+    }
+
+    /// Returns an iterator starting from the beginning of the row that the passed in index is on
+    /// ```
+    /// use neighborgrid::*;
+    /// let vec = vec![
+    ///             vec![0, 1, 2],
+    ///             vec![3, 4, 5],
+    ///             vec![6, 7, 8],
+    ///             vec![9, 10, 11],
+    ///             vec![12, 13, 14],
+    /// ];
+    /// let gridoptions = GridOptions {
+    ///        origin: Origin::Center,
+    ///         ..GridOptions::default()
+    /// };
+    /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
+    ///
+    /// let mut iter = grid.col_iter((1, -2));
+    /// assert_eq!(iter.next(), Some(&2));
+    /// assert_eq!(iter.next(), Some(&5));
+    /// assert_eq!(iter.next(), Some(&8));
+    /// assert_eq!(iter.next(), Some(&11));
+    /// assert_eq!(iter.next(), Some(&14));
+    /// assert_eq!(iter.next(), None)
+    ///```
+    pub fn col_iter<'b, 'a: 'b, I: Index>(&'a self, index: I) -> ColIter<'b, T> {
+        let res = index.grid_index(&self);
+        // Noop coverts invalid grid location Result into an iterator that returns None right way
+        match res {
+            Ok(i) => ColIter::new(self, i),
+            Err(_) => ColIter::noop(),
+        }
+    }
+
+    pub fn row_iter_mut<'b, 'a: 'b, I: Index>(&'a mut self, index: I) -> MutRowIter<'b, T> {
+        let res = index.grid_index(&self);
+        // Noop coverts invalid grid location Result into an iterator that returns None right way
+        match res {
+            Ok(i) => MutRowIter::new(self, i),
+            Err(_) => MutRowIter::noop(),
+        }
+    }
+
+    pub fn col_iter_mut<'b, 'a: 'b, I: Index>(&'a mut self, index: I) -> MutColIter<'b, T> {
+        let res = index.grid_index(&self);
+        // Noop coverts invalid grid location Result into an iterator that returns None right way
+        match res {
+            Ok(i) => MutColIter::new(self, i),
+            Err(_) => MutColIter::noop(),
+        }
+    }
+
+    /// Returns an vector of {Neighbor}s. Order is left, right, bottom, top of index called. The vec only
+    /// contains neighbors that are in grid, therefore calling this function on a item along the edge will only return 3 neighbors.
+    /// ```
+    /// use neighborgrid::*;
+    /// let vec = vec![
+    ///             vec![0, 1, 2],
+    ///             vec![3, 4, 5],
+    ///             vec![6, 7, 8],
+    ///             vec![9, 10, 11],
+    ///             vec![12, 13, 14],
+    /// ];
+    /// let gridoptions = GridOptions {
+    ///        origin: Origin::Center,
+    ///         ..GridOptions::default()
+    /// };
+    /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
+    ///
+    /// let neighbors = grid.xy_neighbors((-1,-2)); // Neighbors of the item with 12 in it.
+    /// assert_eq!(neighbors.len(), 3);
+    /// let mut iter = neighbors.iter().map(|x| x.value);
+    /// assert_eq!(iter.next(), Some(&9));
+    /// assert_eq!(iter.next(), Some(&10));
+    /// assert_eq!(iter.next(), Some(&13));
+    /// assert_eq!(iter.next(), None)
+    ///```
+    pub fn xy_neighbors<I: Index>(&self, index: I) -> Vec<Neighbor<'_, T>> {
+        if let Ok(index) = index.grid_index(self) {
+            let indicies = vec![
+                index - 1,
+                index + 1,
+                index - self.cols as usize,
+                index + self.cols as usize,
+            ];
+            indicies
+                .into_iter()
+                .filter_map(|index| {
+                    if let Some(value) = self._get(index) {
+                        Some(Neighbor {
+                            value,
+                            location: Coordinates::output(index, self),
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        } else {
+            vec![]
+        }
     }
 
     pub(crate) fn create(
@@ -103,6 +253,10 @@ pub(crate) fn col_number<T>(grid: &Grid<T>, index: usize) -> usize {
     index % grid.cols as usize
 }
 
+pub(crate) fn row_col_number<T>(grid: &Grid<T>, index: usize) -> (usize, usize) {
+    (row_number(grid, index), col_number(grid, index))
+}
+
 pub(crate) fn row_start_index<T>(grid: &Grid<T>, index: usize) -> usize {
     row_number(grid, index) * grid.cols as usize
 }
@@ -110,29 +264,6 @@ pub(crate) fn row_start_index<T>(grid: &Grid<T>, index: usize) -> usize {
 pub(crate) fn col_start_index<T>(grid: &Grid<T>, index: usize) -> usize {
     col_number(grid, index)
 }
-
-// impl<S: Clone + PartialEq + Send + Sync + 'static> Rotate for &Grid<S> {
-//     type PuzzleInp = Grid<S>;
-//
-//     fn cwrotate(self, quarter_rotations: usize) -> Res<Self::PuzzleInp> {
-//         let max = self.size.house_size();
-//         let mut ret: Vec<_> = self.iter().cloned().collect();
-//         for _ in 0..quarter_rotations {
-//             for x in 0..max / 2 {
-//                 for y in x..max - 1 - x {
-//                     let ul = Coord::new(x, y, self.size).to_usize();
-//                     let ur = Coord::new(y, max - 1 - x, self.size).to_usize();
-//                     let ll = Coord::new(max - 1 - y, x, self.size).to_usize();
-//                     let lr = Coord::new(max - 1 - x, max - 1 - y, self.size).to_usize();
-//                     ret.swap(ul, ll);
-//                     ret.swap(ll, lr);
-//                     ret.swap(lr, ur);
-//                 }
-//             }
-//         }
-//         Ok(Grid::new(ret))
-//     }
-// }
 
 #[cfg(test)]
 mod grid_tests {
@@ -189,6 +320,74 @@ mod grid_tests {
             assert_eq!(*v, 12i32);
             let v = grid.get((0, 0)).unwrap();
             assert_eq!(*v, 12i32);
+        }
+    }
+
+    mod row_iters {
+        use super::*;
+
+        #[test]
+        fn should_return_none_outside_bounds() {
+            let mut grid = center_grid();
+            let mut iter = grid.row_iter((2, 0));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.next(), None);
+        }
+
+        #[test]
+        fn should_return_none_outside_bounds_mut() {
+            let mut grid = center_grid();
+            let mut iter = grid.row_iter_mut((2, 0));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.next(), None);
+        }
+
+        #[test]
+        fn should_iter_mutably() {
+            let mut grid = center_grid();
+            for mut cell in grid.row_iter_mut((0, 1)) {
+                *cell += 1;
+            }
+            let mut iter = grid.row_iter((0, 1));
+            assert_eq!(iter.next(), Some(&4));
+            assert_eq!(iter.next(), Some(&5));
+            assert_eq!(iter.next(), Some(&6));
+            assert_eq!(iter.next(), None);
+        }
+    }
+
+    mod col_iters {
+        use super::*;
+
+        #[test]
+        fn should_return_none_outside_bounds() {
+            let mut grid = center_grid();
+            let mut iter = grid.col_iter((-4, 0));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.next(), None);
+        }
+
+        #[test]
+        fn should_return_none_outside_bounds_mut() {
+            let mut grid = center_grid();
+            let mut iter = grid.col_iter_mut((-4, 0));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.next(), None);
+        }
+
+        #[test]
+        fn should_iter_mutably() {
+            let mut grid = center_grid();
+            for mut cell in grid.col_iter_mut((0, 1)) {
+                *cell += 1;
+            }
+            let mut iter = grid.col_iter((0, 1));
+            assert_eq!(iter.next(), Some(&2));
+            assert_eq!(iter.next(), Some(&5));
+            assert_eq!(iter.next(), Some(&8));
+            assert_eq!(iter.next(), Some(&11));
+            assert_eq!(iter.next(), Some(&14));
+            assert_eq!(iter.next(), None);
         }
     }
 }
