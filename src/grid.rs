@@ -6,8 +6,8 @@ use crate::row_iters::{MutRowIter, RowIter};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Grid<T> {
     pub(crate) items: Vec<T>,
-    pub(crate) rows: i32,
-    pub(crate) cols: i32,
+    pub(crate) rows: usize,
+    pub(crate) cols: usize,
     pub(crate) options: Option<GridOptions>,
 }
 
@@ -251,8 +251,8 @@ impl<T> Grid<T> {
 
     pub(crate) fn create(
         items: Vec<T>,
-        rows: i32,
-        cols: i32,
+        rows: usize,
+        cols: usize,
         options: Option<GridOptions>,
     ) -> Grid<T> {
         Grid {
@@ -315,11 +315,11 @@ mod grid_tests {
         let vec = vec![vec![1; u16::MAX as usize]; 1000];
         let grid = vec.into_grid()?;
         assert_eq!(grid.rows, 1000);
-        assert_eq!(grid.cols, i32::from(u16::MAX));
+        assert_eq!(grid.cols, usize::from(u16::MAX));
 
         let vec = vec![vec![1; 1000]; u16::MAX as usize];
         let grid = vec.into_grid()?;
-        assert_eq!(grid.rows, u16::MAX as i32);
+        assert_eq!(grid.rows, u16::MAX as usize);
         assert_eq!(grid.cols, 1000);
 
         Ok(())

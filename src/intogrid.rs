@@ -28,7 +28,7 @@ impl<T> IntoGrid<T> for Vec<Vec<T>> {
             }
             grid.append(&mut row);
         }
-        Ok(Grid::create(grid, rows as i32, cols as i32, None))
+        Ok(Grid::create(grid, rows, cols, None))
     }
 }
 
@@ -67,7 +67,7 @@ fn _convert1d<T: Clone>(items: (&Vec<T>, usize)) -> Result<Grid<T>, GridError> {
     for _ in 0..items.1 {
         vec.append(&mut items.0.clone())
     }
-    Ok(Grid::create(vec, cols as i32, items.1 as i32, None))
+    Ok(Grid::create(vec, cols, items.1, None))
 }
 
 #[cfg(test)]
