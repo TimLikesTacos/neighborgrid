@@ -174,6 +174,7 @@ impl<T> Grid<T> {
 
     /// Returns an vector of {Neighbor}s. Order is left, right, bottom, top of index called. The vec only
     /// contains neighbors that are in grid, therefore calling this function on a item along the edge will only return 3 neighbors.
+    /// Order in which they are returned relative to the central location is not guarenteed, so if relative position is important, use the coordinate component.
     /// ```
     /// use neighborgrid::*;
     /// let vec = vec![
@@ -190,37 +191,62 @@ impl<T> Grid<T> {
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
     /// let neighbors = grid.xy_neighbors((-1,-2)); // Neighbors of the item with 12 in it.
-    /// assert_eq!(neighbors.len(), 3);
-    /// let mut iter = neighbors.iter().map(|x| x.value);
-    /// assert_eq!(iter.next(), Some(&9));
-    /// assert_eq!(iter.next(), Some(&10));
-    /// assert_eq!(iter.next(), Some(&13));
-    /// assert_eq!(iter.next(), None)
+    /// assert_eq!(neighbors.len(), 2);
+    /// let neighbors: Vec<_> = neighbors.iter().map(|x| x.value).collect();
+    /// assert!(neighbors.contains(&&9));
+    /// assert!(neighbors.contains(&&13));
+    ///
+    /// let neighbors = grid.xy_neighbors((0,0));
+    /// assert_eq!(neighbors.len(), 4);
+    /// let neighbors:Vec<_> = neighbors.iter().map(|x| x.value).collect();
+    /// assert!(neighbors.contains(&&4));
+    /// assert!(neighbors.contains(&&10));
+    /// assert!(neighbors.contains(&&6));
+    /// assert!(neighbors.contains(&&8));
     ///```
     pub fn xy_neighbors<I: Index>(&self, index: I) -> Vec<Neighbor<'_, T>> {
+        let make_coordinate = |ind_op: Option<usize>| -> Option<Neighbor<'_, T>> {
+            if let Some(index) = ind_op {
+                if let Some(value) = self._get(index) {
+                    return Some(Neighbor {
+                        value,
+                        location: Coordinates::output(index, self),
+                    });
+                }
+            }
+            None
+        };
+
         if let Ok(index) = index.grid_index(self) {
-            let indicies = vec![
-                index - 1,
-                index + 1,
-                index - self.cols as usize,
-                index + self.cols as usize,
-            ];
+            let indicies = self.xy_neighbor_locations(index);
             indicies
                 .into_iter()
-                .filter_map(|index| {
-                    if let Some(value) = self._get(index) {
-                        Some(Neighbor {
-                            value,
-                            location: Coordinates::output(index, self),
-                        })
-                    } else {
-                        None
-                    }
-                })
+                .filter(|i| i.is_some())
+                .filter_map(make_coordinate)
                 .collect()
         } else {
             vec![]
         }
+    }
+
+    fn xy_neighbor_locations(&self, index: usize) -> [Option<usize>; 4] {
+        let down = index.checked_add(self.cols as usize).and_then(|v| {
+            if v < self.size() {
+                Some(v)
+            } else {
+                None
+            }
+        });
+        let up = index.checked_sub(self.cols as usize);
+
+        let col = col_number(self, index);
+        let left = if col > 0 { Some(index - 1) } else { None };
+        let right = if col < self.cols as usize - 1 {
+            Some(index + 1)
+        } else {
+            None
+        };
+        [up, down, left, right]
     }
 
     pub(crate) fn create(
