@@ -3,6 +3,7 @@ use crate::error::GridError;
 use crate::index::{Coordinates, Index};
 use crate::intogrid::IntoGrid;
 use crate::row_iters::{MutRowIter, RowIter};
+use crate::xyneightbor::XyNeighbor;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Grid<T> {
     pub(crate) items: Vec<T>,
@@ -57,6 +58,16 @@ impl<T> Grid<T> {
         self.items.len()
     }
 
+    #[inline]
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+
+    #[inline]
+    pub fn columns(&self) -> usize {
+        self.cols
+    }
+
     pub fn get<I: Index>(&self, index: I) -> Option<&T> {
         if let Ok(index) = index.grid_index(&self) {
             Some(&self.items[index])
@@ -70,6 +81,81 @@ impl<T> Grid<T> {
             Some(&mut self.items[index])
         } else {
             None
+        }
+    }
+
+    pub fn get_up<I: Index>(&self, index: I) -> Option<&T> {
+        let idx = self.up_idx(index).ok()?;
+        Some(&self.items[idx])
+    }
+
+    pub fn get_down<I: Index>(&self, index: I) -> Option<&T> {
+        let idx = self.down_idx(index).ok()?;
+        Some(&self.items[idx])
+    }
+
+    pub fn get_left<I: Index>(&self, index: I) -> Option<&T> {
+        let idx = self.left_idx(index).ok()?;
+        Some(&self.items[idx])
+    }
+
+    pub fn get_right<I: Index>(&self, index: I) -> Option<&T> {
+        let idx = self.right_idx(index).ok()?;
+        Some(&self.items[idx])
+    }
+
+    pub fn get_up_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
+        let idx = self.up_idx(index).ok()?;
+        Some(&mut self.items[idx])
+    }
+
+    pub fn get_down_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
+        let idx = self.down_idx(index).ok()?;
+        Some(&mut self.items[idx])
+    }
+
+    pub fn get_left_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
+        let idx = self.left_idx(index).ok()?;
+        Some(&mut self.items[idx])
+    }
+
+    pub fn get_right_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
+        let idx = self.right_idx(index).ok()?;
+        Some(&mut self.items[idx])
+    }
+
+    fn down_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
+        let index = index.grid_index(self)?;
+        let res = index + self.cols;
+        if res < self.size() {
+            Ok(res)
+        } else {
+            Err(GridError::IndexOutOfBounds)
+        }
+    }
+
+    fn up_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
+        let index = index.grid_index(self)?;
+        index
+            .checked_sub(self.cols)
+            .ok_or(GridError::IndexOutOfBounds)
+    }
+
+    fn left_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
+        let index = index.grid_index(self)?;
+        if index == 0 || index % self.cols == 0 {
+            Err(GridError::IndexOutOfBounds)
+        } else {
+            Ok(index - 1)
+        }
+    }
+
+    fn right_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
+        let index = index.grid_index(self)? + 1;
+        if index == self.size() || index % self.cols == 0 {
+            Err(GridError::IndexOutOfBounds)
+        } else {
+            Ok(index)
         }
     }
 
@@ -190,63 +276,20 @@ impl<T> Grid<T> {
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
-    /// let neighbors = grid.xy_neighbors((-1,-2)); // Neighbors of the item with 12 in it.
-    /// assert_eq!(neighbors.len(), 2);
-    /// let neighbors: Vec<_> = neighbors.iter().map(|x| x.value).collect();
-    /// assert!(neighbors.contains(&&9));
-    /// assert!(neighbors.contains(&&13));
-    ///
-    /// let neighbors = grid.xy_neighbors((0,0));
-    /// assert_eq!(neighbors.len(), 4);
-    /// let neighbors:Vec<_> = neighbors.iter().map(|x| x.value).collect();
-    /// assert!(neighbors.contains(&&4));
-    /// assert!(neighbors.contains(&&10));
-    /// assert!(neighbors.contains(&&6));
-    /// assert!(neighbors.contains(&&8));
+    /// let neighbors = grid.xy_neighbors((-1,-2)).expect("was not a valid coodinate"); // Neighbors of the item with 12 in it.
+    /// assert_eq!(neighbors.up, Some(&9));
+    /// assert_eq!(neighbors.down, None);
+    /// assert_eq!(neighbors.left, None);
+    /// assert_eq!(neighbors.right, Some(&13));
     ///```
-    pub fn xy_neighbors<I: Index>(&self, index: I) -> Vec<Neighbor<'_, T>> {
-        let make_coordinate = |ind_op: Option<usize>| -> Option<Neighbor<'_, T>> {
-            if let Some(index) = ind_op {
-                if let Some(value) = self._get(index) {
-                    return Some(Neighbor {
-                        value,
-                        location: Coordinates::output(index, self),
-                    });
-                }
-            }
-            None
-        };
-
-        if let Ok(index) = index.grid_index(self) {
-            let indicies = self.xy_neighbor_locations(index);
-            indicies
-                .into_iter()
-                .filter(|i| i.is_some())
-                .filter_map(make_coordinate)
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-
-    fn xy_neighbor_locations(&self, index: usize) -> [Option<usize>; 4] {
-        let down = index.checked_add(self.cols as usize).and_then(|v| {
-            if v < self.size() {
-                Some(v)
-            } else {
-                None
-            }
-        });
-        let up = index.checked_sub(self.cols as usize);
-
-        let col = col_number(self, index);
-        let left = if col > 0 { Some(index - 1) } else { None };
-        let right = if col < self.cols as usize - 1 {
-            Some(index + 1)
-        } else {
-            None
-        };
-        [up, down, left, right]
+    pub fn xy_neighbors<I: Index>(&self, index: I) -> Result<XyNeighbor<'_, T>, GridError> {
+        let index = index.grid_index(&self)?;
+        Ok(XyNeighbor {
+            up: self.get_up(index),
+            down: self.get_down(index),
+            left: self.get_left(index),
+            right: self.get_right(index),
+        })
     }
 
     pub(crate) fn create(
@@ -346,6 +389,42 @@ mod grid_tests {
             assert_eq!(*v, 12i32);
             let v = grid.get((0, 0)).unwrap();
             assert_eq!(*v, 12i32);
+        }
+
+        #[test]
+        fn should_get_up() {
+            let grid = center_grid();
+            assert_eq!(grid.get_up((0, 0)), Some(&4i32));
+            assert_eq!(grid.get_up((-1, 1)), Some(&0i32));
+            assert_eq!(grid.get_up(1), None);
+            assert_eq!(grid.get_up((-2, 0)), None);
+        }
+
+        #[test]
+        fn should_get_down() {
+            let grid = center_grid();
+            assert_eq!(grid.get_down((0, 0)), Some(&10i32));
+            assert_eq!(grid.get_down((-1, 1)), Some(&6i32));
+            assert_eq!(grid.get_down(12), None);
+            assert_eq!(grid.get_down((-2, 0)), None);
+        }
+
+        #[test]
+        fn should_get_left() {
+            let grid = center_grid();
+            assert_eq!(grid.get_left((0, 0)), Some(&6i32));
+            assert_eq!(grid.get_left((1, 1)), Some(&4i32));
+            assert_eq!(grid.get_left(12), None);
+            assert_eq!(grid.get_left((-2, 0)), None);
+        }
+
+        #[test]
+        fn should_get_right() {
+            let grid = center_grid();
+            assert_eq!(grid.get_right((0, 0)), Some(&8i32));
+            assert_eq!(grid.get_right((-1, -1)), Some(&10i32));
+            assert_eq!(grid.get_right(11), None);
+            assert_eq!(grid.get_right((-2, 0)), None);
         }
     }
 
