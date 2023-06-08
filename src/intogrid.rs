@@ -8,8 +8,8 @@ pub trait IntoGrid<T> {
 impl<T> IntoGrid<T> for Vec<Vec<T>> {
     fn into_grid(self) -> Result<Grid<T>, GridError> {
         let rows = self.len();
-        let mut cols = 0;
-        let mut total = 0;
+        let cols;
+        let total;
         if let Some(first) = self.get(0) {
             cols = first.len();
 

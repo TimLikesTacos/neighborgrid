@@ -56,16 +56,6 @@ impl Index for (isize, isize) {
     }
 }
 
-impl<S: Index + Clone> Index for &S {
-    fn grid_index<T>(self, grid: &Grid<T>) -> Result<usize, GridError> {
-        S::grid_index(self.clone(), grid)
-    }
-
-    fn output<T>(_: usize, grid: &Grid<T>) -> Self {
-        todo!()
-    }
-}
-
 fn invert_y<T>(grid: &Grid<T>, y: isize) -> isize {
     if let Some(options) = &grid.options {
         if options.inverted_y {
@@ -79,23 +69,12 @@ fn invert_y<T>(grid: &Grid<T>, y: isize) -> isize {
 }
 
 fn bounds_check<T>(grid: &Grid<T>, x: isize, y: isize) -> Result<(), GridError> {
-    let abs = |v: isize| v.abs() as usize;
+    let max_x = grid.max_x();
+    let min_x = grid.min_x();
+    let max_y = grid.max_y();
+    let min_y = grid.min_y();
 
-    let maxlimit = abs(x) < grid.cols && abs(y) < grid.rows;
-
-    let specific = match grid.origin() {
-        Origin::UpperLeft => x >= 0 && y <= 0,
-        Origin::UpperRight => x <= 0 && y <= 0,
-        Origin::LowerLeft => x >= 0 && y >= 0,
-        Origin::LowerRight => x <= 0 && y >= 0,
-        Origin::Center => {
-            let x_offset = grid.cols / 2 + 1;
-            let y_offset = grid.rows / 2 + 1;
-            abs(x) < x_offset && abs(y) < y_offset
-        }
-    };
-
-    if specific && maxlimit {
+    if x >= min_x && x <= max_x && y >= min_y && y <= max_y {
         Ok(())
     } else {
         Err(GridError::IndexOutOfBounds)
@@ -116,10 +95,8 @@ pub(crate) fn xy_to_index<T>(grid: &Grid<T>, x: isize, y: isize) -> usize {
 fn adjust_from_origin<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
     match grid.origin() {
         Origin::UpperLeft => convert_upper_left(&grid, x, y),
-        Origin::UpperRight => convert_upper_right(&grid, x, y),
         Origin::Center => convert_center(&grid, x, y),
         Origin::LowerLeft => convert_lower_left(&grid, x, y),
-        Origin::LowerRight => convert_lower_right(&grid, x, y),
     }
 }
 
@@ -128,19 +105,11 @@ fn adjust_from_origin<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
 fn adjust_to_origin<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
     match grid.origin() {
         Origin::UpperLeft => convert_upper_left(&grid, x, y),
-        Origin::UpperRight => {
-            let (tx, ty) = convert_upper_right(&grid, -x, y);
-            (-tx, ty)
-        }
         Origin::Center => {
             let (tx, ty) = convert_center(&grid, -x, y);
             (-tx, ty)
         }
         Origin::LowerLeft => convert_lower_left(&grid, x, y),
-        Origin::LowerRight => {
-            let (x, y) = convert_lower_right(&grid, -x, y);
-            (-x, y)
-        }
     }
 }
 
@@ -157,18 +126,8 @@ fn convert_upper_left<T>(_grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) 
 }
 
 #[inline]
-fn convert_upper_right<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
-    (x + ((grid.cols - 1) as isize), -y)
-}
-
-#[inline]
 fn convert_lower_left<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
     (x, (grid.rows - 1) as isize - y)
-}
-
-#[inline]
-fn convert_lower_right<T>(grid: &Grid<T>, x: isize, y: isize) -> (isize, isize) {
-    ((grid.cols - 1) as isize + x, (grid.rows - 1) as isize - y)
 }
 
 #[cfg(test)]
@@ -242,18 +201,6 @@ mod index_tests {
     }
 
     #[test]
-    fn upperright_xy() {
-        let grid = origin_grid(Origin::UpperRight);
-        let (x, y) = adjust_from_origin(&grid, 0, 0);
-        assert_eq!(x, 2);
-        assert_eq!(y, 0);
-
-        let (x, y) = adjust_from_origin(&grid, -1, -2);
-        assert_eq!(x, 1);
-        assert_eq!(y, 2);
-    }
-
-    #[test]
     fn lowerleft_xy() {
         let grid = origin_grid(Origin::LowerLeft);
         let (x, y) = adjust_from_origin(&grid, 0, 0);
@@ -261,18 +208,6 @@ mod index_tests {
         assert_eq!(y, 3);
 
         let (x, y) = adjust_from_origin(&grid, 1, 2);
-        assert_eq!(x, 1);
-        assert_eq!(y, 1);
-    }
-
-    #[test]
-    fn lowerright_xy() {
-        let grid = origin_grid(Origin::LowerRight);
-        let (x, y) = adjust_from_origin(&grid, 0, 0);
-        assert_eq!(x, 2);
-        assert_eq!(y, 3);
-
-        let (x, y) = adjust_from_origin(&grid, -1, 2);
         assert_eq!(x, 1);
         assert_eq!(y, 1);
     }
@@ -300,6 +235,7 @@ mod index_tests {
     #[test]
     fn should_err_on_outofbounds() {
         let grid = center_origin();
+        dbg!(grid.max_x(), grid.max_y());
         let index = (2, 0).grid_index(&grid);
         assert!(matches!(index, Err(GridError::IndexOutOfBounds)));
 
@@ -361,56 +297,6 @@ mod index_tests {
     }
 
     #[test]
-    fn should_convert_index_upperright() -> Result<()> {
-        let mut grid = origin_grid(Origin::UpperRight);
-        let index = (0, 0).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 2);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (0, 0));
-
-        let index = (-1, 0).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 1);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (-1, 0));
-
-        let index = (0, -1).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 5);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (0, -1));
-
-        let index = (-2, -3).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 9);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (-2, -3));
-
-        let mut options = grid.options.unwrap().clone();
-        options.inverted_y = true;
-        grid.options = Some(options);
-
-        let index = (0, 0).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 2);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (0, 0));
-
-        let index = (-1, 0).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 1);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (-1, 0));
-
-        let index = (0, 1).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 5);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (0, 1));
-
-        let index = (-2, 3).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 9);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (-2, 3));
-
-        Ok(())
-    }
-
-    #[test]
     fn should_convert_index_lowerleft() -> Result<()> {
         let mut grid = origin_grid(Origin::LowerLeft);
         let index = (0, 0).grid_index(&grid)?;
@@ -456,56 +342,6 @@ mod index_tests {
         assert_eq!(grid.items[index], 2);
         let output: (isize, isize) = Index::output(index, &grid);
         assert_eq!(output, (2, -3));
-
-        Ok(())
-    }
-
-    #[test]
-    fn should_convert_index_lowerright() -> Result<()> {
-        let mut grid = origin_grid(Origin::LowerRight);
-        let index = (0, 0).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 11);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (0, 0));
-
-        let index = (-1, 0).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 10);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (-1, 0));
-
-        let index = (0, 1).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 8);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (0, 1));
-
-        let index = (-2, 3).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 0);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (-2, 3));
-
-        let mut options = grid.options.unwrap().clone();
-        options.inverted_y = true;
-        grid.options = Some(options);
-
-        let index = (0, 0).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 11);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (0, 0));
-
-        let index = (-1, 0).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 10);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (-1, 0));
-
-        let index = (0, -1).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 8);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (0, -1));
-
-        let index = (-2, -3).grid_index(&grid)?;
-        assert_eq!(grid.items[index], 0);
-        let output: (isize, isize) = Index::output(index, &grid);
-        assert_eq!(output, (-2, -3));
 
         Ok(())
     }
