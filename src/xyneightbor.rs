@@ -110,6 +110,7 @@ mod xyneightbor_tests {
         assert_eq!(iter.next(), None);
     }
 
+    #[test]
     fn xyneightbor_intoiter_test() {
         let neigh = XyNeighbor {
             up: Some(&1),

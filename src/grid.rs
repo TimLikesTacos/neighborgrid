@@ -3,6 +3,7 @@ use crate::error::GridError;
 use crate::index::Index;
 use crate::intogrid::IntoGrid;
 pub use crate::origin::Origin;
+use crate::quaditers::NrantIterator;
 use crate::row_iters::{MutRowIter, RowIter};
 use crate::xyneightbor::AllAroundNeighbor;
 pub use crate::xyneightbor::XyNeighbor;
@@ -16,7 +17,7 @@ pub struct Grid<T> {
     pub(crate) items: Vec<T>,
     pub(crate) rows: usize,
     pub(crate) cols: usize,
-    pub(crate) options: Option<GridOptions>,
+    pub(crate) options: GridOptions,
 }
 
 /// Custom configuration of the grid.  For most grids out there, with x and y values always positive, an `origin: Origin::UpperLeft` and `inverted_y: true` is the best fit, and therefore is the default setting.
@@ -41,11 +42,28 @@ impl<T> Grid<T> {
     /// These are things like a 2-D Vec, 1-D vec with row parameters, and others.
     pub fn new<I: IntoGrid<T>>(items: I, options: Option<GridOptions>) -> Result<Self, GridError> {
         let grid = Grid {
-            options,
+            options: options.unwrap_or_default(),
             ..items.into_grid()?
         };
 
         Ok(grid)
+    }
+
+    pub fn new_from_1d(
+        vec: Vec<T>,
+        columns: usize,
+        rows: usize,
+        options: Option<GridOptions>,
+    ) -> Result<Self, GridError> {
+        if vec.len() != rows.checked_mul(columns).ok_or(GridError::ExcessiveSize)? {
+            return Err(GridError::InvalidSize);
+        }
+        Ok(Grid {
+            items: vec,
+            rows,
+            cols: columns,
+            options: options.unwrap_or_default(),
+        })
     }
 
     /// The number of cells in the grid
@@ -223,51 +241,61 @@ impl<T> Grid<T> {
         Some(&self.items[idx])
     }
 
+    #[inline]
     pub fn get_downright<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.downright_idx(index).ok()?;
         Some(&self.items[idx])
     }
 
+    #[inline]
     pub fn get_up_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
         let idx = self.up_idx(index).ok()?;
         Some(&mut self.items[idx])
     }
 
+    #[inline]
     pub fn get_down_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
         let idx = self.down_idx(index).ok()?;
         Some(&mut self.items[idx])
     }
 
+    #[inline]
     pub fn get_left_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
         let idx = self.left_idx(index).ok()?;
         Some(&mut self.items[idx])
     }
 
+    #[inline]
     pub fn get_right_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
         let idx = self.right_idx(index).ok()?;
         Some(&mut self.items[idx])
     }
 
+    #[inline]
     pub fn get_upleft_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
         let idx = self.upleft_idx(index).ok()?;
         Some(&mut self.items[idx])
     }
 
+    #[inline]
     pub fn get_upright_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
         let idx = self.upright_idx(index).ok()?;
         Some(&mut self.items[idx])
     }
 
+    #[inline]
     pub fn get_downleft_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
         let idx = self.downleft_idx(index).ok()?;
         Some(&mut self.items[idx])
     }
 
+    #[inline]
     pub fn get_downright_mut<I: Index>(&mut self, index: I) -> Option<&mut T> {
         let idx = self.downright_idx(index).ok()?;
         Some(&mut self.items[idx])
     }
 
+    #[inline]
     fn down_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         let index = index.grid_index(self)?;
         if self.is_inverted_y() && self.neighbor_ybased_invert() {
@@ -277,6 +305,7 @@ impl<T> Grid<T> {
         }
     }
 
+    #[inline]
     fn actual_down_ind(&self, index: usize) -> Result<usize, GridError> {
         let res = index + self.cols;
         if res < self.size() {
@@ -286,10 +315,12 @@ impl<T> Grid<T> {
         }
     }
 
+    #[inline]
     fn downleft_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         self.down_idx(index).and_then(|i| self.left_idx(i))
     }
 
+    #[inline]
     fn downright_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         self.down_idx(index).and_then(|i| self.right_idx(i))
     }
@@ -300,11 +331,9 @@ impl<T> Grid<T> {
             .ok_or(GridError::IndexOutOfBounds)
     }
 
+    #[inline]
     fn neighbor_ybased_invert(&self) -> bool {
-        self.options
-            .as_ref()
-            .and_then(|options| Some(options.neighbor_ybased))
-            .unwrap_or(NEIGHBOR_Y_BASED)
+        self.options.neighbor_ybased
     }
 
     fn up_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
@@ -316,10 +345,12 @@ impl<T> Grid<T> {
         }
     }
 
+    #[inline]
     fn upleft_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         self.up_idx(index).and_then(|i| self.left_idx(i))
     }
 
+    #[inline]
     fn upright_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         self.up_idx(index).and_then(|i| self.right_idx(i))
     }
@@ -342,50 +373,85 @@ impl<T> Grid<T> {
         }
     }
 
+    #[inline]
     fn _get(&self, index: usize) -> Option<&T> {
         self.items.get(index)
     }
 
+    #[inline]
     fn _get_mut(&mut self, index: usize) -> Option<&mut T> {
         self.items.get_mut(index)
     }
 
+    #[inline]
     fn is_inverted_y(&self) -> bool {
-        if let Some(options) = &self.options {
-            options.inverted_y
-        } else {
-            false
-        }
+        self.options.inverted_y
     }
 
     /// Iterates over all elements
+    #[inline]
     pub fn iter<'b, 'a: 'b>(&'a self) -> impl Iterator<Item = &'a T> + 'b {
         self.items.iter()
     }
 
     /// Mutable iterator over all elements
+    #[inline]
     pub fn iter_mut<'b, 'a: 'b>(&'a mut self) -> impl Iterator<Item = &'a mut T> + 'b {
         self.items.iter_mut()
     }
 
     /// Maximum x-value for grid coodinate. Depends on which `Origin` is used in `GridOptions`
+    #[inline]
     pub fn max_x(&self) -> isize {
         self.origin().max_x(self)
     }
 
     /// Maximum y-value for grid coodinate. Depends on which `Origin` is used in `GridOptions`
+    #[inline]
     pub fn max_y(&self) -> isize {
         self.origin().max_y(self)
     }
 
     /// Minimum x-value for grid coodinate. Depends on which `Origin` is used in `GridOptions`
+    #[inline]
     pub fn min_x(&self) -> isize {
         self.origin().min_x(self)
     }
 
     /// Minimum y-value for grid coodinate. Depends on which `Origin` is used in `GridOptions`
+    #[inline]
     pub fn min_y(&self) -> isize {
         self.origin().min_y(self)
+    }
+
+    /// Returns which Nth-rant (or whatever the actual mathy term is) the index is in. Quadrant size is done with ceiling math, so grids not evenly divisible by the `divisor` will have smaller amount of cells in the bottom and right quadrants.
+    /// For example, if you have a 9X9 grid and want sections 3x3, like a Sudoku puzzle, you would use a divisor of 3 ( 9 / 3 == 3 );
+    pub fn nrant<I: Index>(&self, index: I, divisor: usize) -> Result<usize, GridError> {
+        if divisor < 1 || divisor > std::cmp::max(self.rows(), self.columns()) {
+            return Err(GridError::InvalidDivisionSize);
+        }
+        let index = index.grid_index(self)?;
+        let rheight = ceiling(self.rows(), divisor);
+        let rwidth = ceiling(self.columns(), divisor);
+        let steps = index / self.columns() / rheight * divisor + (index % self.columns()) / rwidth;
+        Ok(steps)
+    }
+
+    /// Returns the index of the first cell of the Nrant
+    pub(crate) fn nrant_start(&self, index: usize, divisor: usize) -> usize {
+        let nrant = self
+            .nrant(index, divisor)
+            .expect("Index already validated. This is not a public facing method");
+        let x_rants = nrant % divisor;
+        let y_rants = nrant / divisor;
+        let x_offset = x_rants * ceiling(self.columns(), divisor);
+        let y_offset = self.rows() / divisor * y_rants;
+        y_offset * self.columns() + x_offset
+    }
+
+    /// Returns which quadrant the index is in.  GridOptions configuration does not have an impact. This is a simplified call to `self.nrant(index, 2)`
+    pub fn quadrant<I: Index>(&self, index: I) -> Result<usize, GridError> {
+        self.nrant(index, 2)
     }
 
     /// Returns an iterator starting from the beginning of the row that the passed in index is on
@@ -454,6 +520,13 @@ impl<T> Grid<T> {
         }
     }
 
+    /// Swap two cells with each other.
+    pub fn swap<I: Index>(&mut self, a: I, b: I) -> Result<(), GridError> {
+        let a = a.grid_index(self)?;
+        let b = b.grid_index(self)?;
+        Ok(self.items.swap(a, b))
+    }
+
     pub fn row_iter_mut<'b, 'a: 'b, I: Index>(&'a mut self, index: I) -> MutRowIter<'b, T> {
         let res = index.grid_index(&self);
         // Noop coverts invalid grid location Result into an iterator that returns None right way
@@ -472,6 +545,26 @@ impl<T> Grid<T> {
         }
     }
 
+    /// Returns an `nrant_iter` with a divisor of 2.  Hence, the grid is split into 4 quadrants and iterates over the quadrant that the
+    /// index belongs to, from the start of the quadrant to the end of the quadrant.
+    pub fn quadrant_iter<'b, 'a: 'b, I: Index>(&'a self, index: I) -> NrantIterator<'b, T> {
+        self.nrant_iter(2, index)
+    }
+
+    /// Divides the grid, as specified by `divisor`, and produces `divisor * divisor` amount of sections.  For example, if `divisor` is `2`, then
+    /// the grid is divided into quadrants.  Making a Sudoku puzzle and want 9 sections (each 3x3) for your 9x9 grid?  Use a `divisor` of `3`.
+    pub fn nrant_iter<'b, 'a: 'b, I: Index>(
+        &'a self,
+        divisor: usize,
+        index: I,
+    ) -> NrantIterator<'b, T> {
+        let res = index.grid_index(&self);
+        // Noop coverts invalid grid location Result into an iterator that returns None right way
+        match res {
+            Ok(i) => NrantIterator::new(self, divisor, i),
+            Err(_) => NrantIterator::noop(self),
+        }
+    }
     /// Returns an `XyNeighbor` which are the four neighbors in cardinal directions from the called cell location
     /// ```
     /// use neighborgrid::*;
@@ -560,15 +653,12 @@ impl<T> Grid<T> {
             items,
             rows,
             cols,
-            options,
+            options: options.unwrap_or_default(),
         }
     }
     #[inline]
     pub(crate) fn origin(&self) -> Origin {
-        if let Some(options) = &self.options {
-            return options.origin.clone();
-        }
-        Origin::default()
+        self.options.origin.clone()
     }
 }
 
@@ -586,6 +676,10 @@ pub(crate) fn row_start_index<T>(grid: &Grid<T>, index: usize) -> usize {
 
 pub(crate) fn col_start_index<T>(grid: &Grid<T>, index: usize) -> usize {
     col_number(grid, index)
+}
+
+pub(crate) fn ceiling(a: usize, b: usize) -> usize {
+    (a + b - 1) / b
 }
 
 #[cfg(test)]
@@ -681,6 +775,66 @@ mod grid_tests {
             assert_eq!(grid.get_right(11), None);
             assert_eq!(grid.get_right((-2, 0)), None);
         }
+
+        #[test]
+        fn basic_quadrant() {
+            let vec = vec![vec![0, 1], vec![2, 3]];
+
+            let grid = Grid::new(vec, None).unwrap();
+            assert_eq!(grid.nrant((0, 0), 1).unwrap(), 0);
+            assert_eq!(grid.nrant((1, 0), 1).unwrap(), 0);
+            assert_eq!(grid.nrant((0, 1), 1).unwrap(), 0);
+            assert_eq!(grid.nrant((1, 1), 1).unwrap(), 0);
+
+            assert_eq!(grid.nrant((0, 0), 2).unwrap(), 0);
+            assert_eq!(grid.nrant((1, 0), 2).unwrap(), 1);
+            assert_eq!(grid.nrant((0, 1), 2).unwrap(), 2);
+            assert_eq!(grid.nrant((1, 1), 2).unwrap(), 3);
+        }
+
+        #[test]
+        fn uneven_quadrant() {
+            let vec = vec![vec![0, 1, 2], vec![3, 4, 5]];
+
+            let grid = Grid::new(vec, None).unwrap();
+
+            assert_eq!(grid.nrant((0, 0), 2).unwrap(), 0);
+            assert_eq!(grid.nrant((1, 0), 2).unwrap(), 0);
+            assert_eq!(grid.nrant((2, 0), 2).unwrap(), 1);
+            assert_eq!(grid.nrant((0, 1), 2).unwrap(), 2);
+            assert_eq!(grid.nrant((1, 1), 2).unwrap(), 2);
+            assert_eq!(grid.nrant((2, 1), 2).unwrap(), 3);
+        }
+
+        #[test]
+        fn nrant_start() {
+            let vec = vec![vec![0, 1], vec![2, 3]];
+
+            let grid = Grid::new(vec, None).unwrap();
+            assert_eq!(grid.nrant_start(0, 1), 0);
+            assert_eq!(grid.nrant_start(1, 1), 0);
+            assert_eq!(grid.nrant_start(2, 1), 0);
+            assert_eq!(grid.nrant_start(3, 1), 0);
+
+            assert_eq!(grid.nrant_start(0, 2), 0);
+            assert_eq!(grid.nrant_start(1, 2), 1);
+            assert_eq!(grid.nrant_start(2, 2), 2);
+            assert_eq!(grid.nrant_start(3, 2), 3);
+        }
+
+        #[test]
+        fn uneven_quadrant_start() {
+            let vec = vec![vec![0, 1, 2], vec![3, 4, 5]];
+
+            let grid = Grid::new(vec, None).unwrap();
+
+            assert_eq!(grid.nrant_start(0, 2), 0);
+            assert_eq!(grid.nrant_start(1, 2), 0);
+            assert_eq!(grid.nrant_start(2, 2), 2);
+            assert_eq!(grid.nrant_start(3, 2), 3);
+            assert_eq!(grid.nrant_start(4, 2), 3);
+            assert_eq!(grid.nrant_start(5, 2), 5);
+        }
     }
 
     mod row_iters {
@@ -688,7 +842,7 @@ mod grid_tests {
 
         #[test]
         fn should_return_none_outside_bounds() {
-            let mut grid = center_grid();
+            let grid = center_grid();
             let mut iter = grid.row_iter((2, 0));
             assert_eq!(iter.next(), None);
             assert_eq!(iter.next(), None);
@@ -705,7 +859,7 @@ mod grid_tests {
         #[test]
         fn should_iter_mutably() {
             let mut grid = center_grid();
-            for mut cell in grid.row_iter_mut((0, 1)) {
+            for cell in grid.row_iter_mut((0, 1)) {
                 *cell += 1;
             }
             let mut iter = grid.row_iter((0, 1));
@@ -721,7 +875,7 @@ mod grid_tests {
 
         #[test]
         fn should_return_none_outside_bounds() {
-            let mut grid = center_grid();
+            let grid = center_grid();
             let mut iter = grid.col_iter((-4, 0));
             assert_eq!(iter.next(), None);
             assert_eq!(iter.next(), None);
@@ -738,7 +892,7 @@ mod grid_tests {
         #[test]
         fn should_iter_mutably() {
             let mut grid = center_grid();
-            for mut cell in grid.col_iter_mut((0, 1)) {
+            for cell in grid.col_iter_mut((0, 1)) {
                 *cell += 1;
             }
             let mut iter = grid.col_iter((0, 1));
@@ -768,7 +922,7 @@ mod grid_tests {
                 inverted_y: false,
                 ..GridOptions::default()
             };
-            let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
+            let grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
             let neighbors = grid
                 .all_around_neighbors((-2, 1))
                 .expect("was not a valid coodinate"); // Neighbors of the item with 4 in it.

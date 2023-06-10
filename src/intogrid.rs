@@ -1,5 +1,5 @@
 use crate::error::GridError;
-use crate::grid::Grid;
+use crate::grid::{Grid, GridOptions};
 
 pub trait IntoGrid<T> {
     fn into_grid(self) -> Result<Grid<T>, GridError>;
@@ -67,7 +67,7 @@ impl<T: Clone> IntoGrid<T> for (usize, usize, T) {
             items: items,
             rows: self.1,
             cols: self.0,
-            options: None,
+            options: GridOptions::default(),
         })
     }
 }

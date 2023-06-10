@@ -4,6 +4,7 @@ mod grid;
 mod index;
 mod intogrid;
 mod origin;
+mod quaditers;
 mod row_iters;
 mod xyneightbor;
 pub use error::GridError;

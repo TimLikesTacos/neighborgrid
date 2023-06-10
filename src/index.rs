@@ -58,12 +58,9 @@ impl Index for (isize, isize) {
 }
 
 fn invert_y<T>(grid: &Grid<T>, y: isize) -> isize {
-    if let Some(options) = &grid.options {
-        if options.inverted_y {
-            -y
-        } else {
-            y
-        }
+    let options = &grid.options;
+    if options.inverted_y {
+        -y
     } else {
         y
     }
@@ -143,7 +140,7 @@ mod index_tests {
             items: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
             rows: 4,
             cols: 3,
-            options: None,
+            options: GridOptions::default(),
         }
     }
 
@@ -151,21 +148,21 @@ mod index_tests {
         let mut grid = basic_grid();
         grid.items.append(&mut vec![12, 13, 14]);
         grid.rows += 1;
-        grid.options = Some(GridOptions {
+        grid.options = GridOptions {
             origin: Origin::Center,
             inverted_y: false,
             ..GridOptions::default()
-        });
+        };
         grid
     }
 
     fn origin_grid(origin: Origin) -> Grid<i32> {
         let mut grid = basic_grid();
-        grid.options = Some(GridOptions {
+        grid.options = GridOptions {
             origin,
             inverted_y: false,
             ..GridOptions::default()
-        });
+        };
         grid
     }
 
@@ -272,9 +269,9 @@ mod index_tests {
         let output: (isize, isize) = Index::output(index, &grid);
         assert_eq!(output, (2, -3));
 
-        let mut options = grid.options.unwrap().clone();
+        let mut options = grid.options.clone();
         options.inverted_y = true;
-        grid.options = Some(options);
+        grid.options = options;
 
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 0);
@@ -322,9 +319,9 @@ mod index_tests {
         let output: (isize, isize) = Index::output(index, &grid);
         assert_eq!(output, (2, 3));
 
-        let mut options = grid.options.unwrap().clone();
+        let mut options = grid.options.clone();
         options.inverted_y = true;
-        grid.options = Some(options);
+        grid.options = options;
 
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 9);
@@ -372,9 +369,9 @@ mod index_tests {
         let output: (isize, isize) = Index::output(index, &grid);
         assert_eq!(output, (-1, 2));
 
-        let mut options = grid.options.unwrap().clone();
+        let mut options = grid.options.clone();
         options.inverted_y = true;
-        grid.options = Some(options);
+        grid.options = options;
 
         let index = (0, 0).grid_index(&grid)?;
         assert_eq!(grid.items[index], 7);
@@ -401,7 +398,7 @@ mod index_tests {
 
     #[test]
     fn coodinate_index() -> Result<()> {
-        let mut grid = center_origin();
+        let grid = center_origin();
         let index = (0, 0).grid_index(&grid)?;
         let cord_index = Coordinates { x: 0, y: 0 }.grid_index(&grid)?;
         assert_eq!(index, cord_index);
@@ -409,6 +406,7 @@ mod index_tests {
         let index = (-1, 2).grid_index(&grid)?;
         let cord_index = Coordinates { x: -1, y: 2 }.grid_index(&grid)?;
 
+        assert_eq!(index, cord_index);
         let cord_index = Coordinates { x: -2, y: 2 }.grid_index(&grid);
         assert!(matches!(cord_index, Err(GridError::IndexOutOfBounds)));
         Ok(())
@@ -416,7 +414,7 @@ mod index_tests {
 
     #[test]
     fn usize_index() -> Result<()> {
-        let mut grid = basic_grid();
+        let grid = basic_grid();
         let index = 5usize.grid_index(&grid)?;
         assert_eq!(index, 5);
 

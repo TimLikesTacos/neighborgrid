@@ -123,7 +123,7 @@ mod iter_tests {
             assert_eq!(iter.next(), Some(&mut 12));
             assert_eq!(iter.next(), None);
 
-            let mut iter = MutColIter::new(&mut grid, 3);
+            let iter = MutColIter::new(&mut grid, 3);
             for value in iter {
                 *value += 1;
             }

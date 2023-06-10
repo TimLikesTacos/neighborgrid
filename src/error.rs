@@ -7,6 +7,7 @@ pub enum GridError {
     RowSizeMismatch,
     InvalidSize,
     ExcessiveSize,
+    InvalidDivisionSize,
 }
 
 impl Display for GridError {
@@ -16,6 +17,10 @@ impl Display for GridError {
             GridError::RowSizeMismatch => write!(f, "Row size must match other rows"),
             GridError::InvalidSize => write!(f, "Invalid grid size"),
             GridError::ExcessiveSize => write!(f, "Resulting grid is too large"),
+            GridError::InvalidDivisionSize => write!(
+                f,
+                "Parameter passed if for divisor is either less than 1 or larger than the grid"
+            ),
         }
     }
 }

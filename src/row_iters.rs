@@ -1,5 +1,4 @@
 use crate::grid::Grid;
-use crate::index::Index;
 
 pub struct RowIter<'a, T> {
     pub(crate) slice: std::slice::Iter<'a, T>,
@@ -114,7 +113,7 @@ mod iter_tests {
             assert_eq!(iter.next(), Some(&mut 5));
             assert_eq!(iter.next(), None);
 
-            let mut iter = MutRowIter::new(&mut grid, 3);
+            let iter = MutRowIter::new(&mut grid, 3);
             for value in iter {
                 *value += 1;
             }
