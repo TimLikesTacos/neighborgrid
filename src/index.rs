@@ -6,6 +6,7 @@ pub trait Index {
     fn output<T>(index: usize, grid: &Grid<T>) -> Self;
 }
 
+/// A stronger-typed way of expressing coordinates than just a tuple of `(isize, isize)`
 #[derive(Clone, Debug, PartialEq)]
 pub struct Coordinates {
     pub x: isize,
@@ -152,6 +153,7 @@ mod index_tests {
         grid.rows += 1;
         grid.options = Some(GridOptions {
             origin: Origin::Center,
+            inverted_y: false,
             ..GridOptions::default()
         });
         grid
@@ -161,6 +163,7 @@ mod index_tests {
         let mut grid = basic_grid();
         grid.options = Some(GridOptions {
             origin,
+            inverted_y: false,
             ..GridOptions::default()
         });
         grid

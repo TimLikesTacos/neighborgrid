@@ -5,6 +5,7 @@ pub trait IntoGrid<T> {
     fn into_grid(self) -> Result<Grid<T>, GridError>;
 }
 
+/// Coverts a 2-D vec to a `Grid`
 impl<T> IntoGrid<T> for Vec<Vec<T>> {
     fn into_grid(self) -> Result<Grid<T>, GridError> {
         let rows = self.len();
@@ -32,15 +33,42 @@ impl<T> IntoGrid<T> for Vec<Vec<T>> {
     }
 }
 
+/// Impl for a tuple of `(&Vec<T>, usize)`, where the usize is the number of rows.
+/// The input vec is repeated for the number of rows.  
+/// For example, (vec![1, 2, 3], 4).into_grid() will result in a 12 cell grid, with 1, 2, 3, 4 repeated on each row
 impl<T: Clone> IntoGrid<T> for (&Vec<T>, usize) {
     fn into_grid(self) -> Result<Grid<T>, GridError> {
         _convert1d(self)
     }
 }
 
+/// Impl for a tuple of `(Vec<T>, usize)`, where the usize is the number of rows.
+/// The input vec is repeated for the number of rows.  
+/// For example, `(vec![1, 2, 3], 4).into_grid()` will result in a 12 cell grid, with 1, 2, 3, 4 repeated on each row
 impl<T: Clone> IntoGrid<T> for (Vec<T>, usize) {
     fn into_grid(self) -> Result<Grid<T>, GridError> {
         _convert1d((&self.0, self.1))
+    }
+}
+
+/// Impl for a tuple of (columns, rows, default_value)
+/// The default value is put into all cells  
+/// ```
+/// use neighborgrid::*;
+/// let grid = (3, 5, 2u8).into_grid().expect("Failed to create Grid");
+/// assert_eq!(grid.rows(), 5);
+/// assert_eq!(grid.columns(), 3);
+/// assert_eq!(grid.get((0,0)), Some(&2u8))
+impl<T: Clone> IntoGrid<T> for (usize, usize, T) {
+    fn into_grid(self) -> Result<Grid<T>, GridError> {
+        let total = row_col_length_check(self.0, self.1)?;
+        let items = vec![self.2; total];
+        Ok(Grid {
+            items: items,
+            rows: self.1,
+            cols: self.0,
+            options: None,
+        })
     }
 }
 

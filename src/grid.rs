@@ -1,12 +1,16 @@
 use crate::col_iters::{ColIter, MutColIter};
 use crate::error::GridError;
-use crate::index::{Coordinates, Index};
+use crate::index::Index;
 use crate::intogrid::IntoGrid;
 pub use crate::origin::Origin;
 use crate::row_iters::{MutRowIter, RowIter};
 use crate::xyneightbor::AllAroundNeighbor;
 pub use crate::xyneightbor::XyNeighbor;
 
+const NEIGHBOR_Y_BASED: bool = true;
+/// A collection that represents a 2-D grid with equal amount of cells in each row and equal number of cells in each column.  Supports different origin (location of 0,0) configurations,
+/// and includes methods to get neighbors of cells, iterators, and more.  Behind the scenes, the data is stored in a 1-D `Vec` to improve performance, but interaction with grid is done through normal (x,y)
+/// grid location methods.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Grid<T> {
     pub(crate) items: Vec<T>,
@@ -15,13 +19,26 @@ pub struct Grid<T> {
     pub(crate) options: Option<GridOptions>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+/// Custom configuration of the grid.  For most grids out there, with x and y values always positive, an `origin: Origin::UpperLeft` and `inverted_y: true` is the best fit, and therefore is the default setting.
+#[derive(Debug, Clone, PartialEq)]
 pub struct GridOptions {
     pub origin: Origin,
     pub inverted_y: bool,
+    pub neighbor_ybased: bool,
 }
 
+impl Default for GridOptions {
+    fn default() -> Self {
+        GridOptions {
+            origin: Origin::default(),
+            inverted_y: true,
+            neighbor_ybased: NEIGHBOR_Y_BASED,
+        }
+    }
+}
 impl<T> Grid<T> {
+    /// Create a new grid. If `options` is `None`, then default `GridOptions` are used.  Takes as parameter `items`, which is anything that implements the `IntoGrid` trait.  
+    /// These are things like a 2-D Vec, 1-D vec with row parameters, and others.
     pub fn new<I: IntoGrid<T>>(items: I, options: Option<GridOptions>) -> Result<Self, GridError> {
         let grid = Grid {
             options,
@@ -70,7 +87,8 @@ impl<T> Grid<T> {
     /// ];
     /// let gridoptions = GridOptions {
     ///        origin: Origin::UpperLeft,
-    ///        inverted_y: true
+    ///        inverted_y: true,
+    ///        ..GridOptions::default()
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
@@ -87,7 +105,7 @@ impl<T> Grid<T> {
         }
     }
 
-    /// Returna an immutable reference to the value stored in the cell with a 1 higher y-value. None if outside grid bounds
+    /// Return an immutable reference to the value stored in the cell with a 1 higher y-value. None if outside grid bounds
     /// ```
     /// use neighborgrid::*;
     /// let vec = vec![
@@ -99,7 +117,8 @@ impl<T> Grid<T> {
     /// ];
     /// let gridoptions = GridOptions {
     ///        origin: Origin::LowerLeft,
-    ///        inverted_y: false
+    ///        inverted_y: false,
+    ///        neighbor_ybased: true,
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
@@ -110,7 +129,7 @@ impl<T> Grid<T> {
     /// assert_eq!(grid.get((2, 4)), Some(&2));
     /// assert_eq!(grid.get_up((2, 4)), None);
     /// ```
-    /// Note that this and `get_down` act differently with the `GridOption` of `inverted_y`
+    /// The `GridOption` of `neighbor_ybased` does not have an impact when `inverted_y` is false.  Below is the same as above but with `neighbor_ybased` set to false.
     /// ```
     /// use neighborgrid::*;
     /// let vec = vec![
@@ -122,16 +141,52 @@ impl<T> Grid<T> {
     /// ];
     /// let gridoptions = GridOptions {
     ///        origin: Origin::LowerLeft,
-    ///        inverted_y: true
+    ///        inverted_y: false,
+    ///        neighbor_ybased: false,
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
     /// // (2,1) is coordinate for 11, above that is 8
+    /// let up = grid.get_up((2, 1));
+    /// assert_eq!(up, Some(&8));
+    /// // Asking for `up` at the top of the grid will return `None`
+    /// assert_eq!(grid.get((2, 4)), Some(&2));
+    /// assert_eq!(grid.get_up((2, 4)), None);
+    /// ```
+    ///
+    /// Note that this and `get_down` act differently with the `GridOption` of `inverted_y` and `neighbor_ybased`
+    /// ```
+    /// use neighborgrid::*;
+    /// let vec = vec![
+    ///             vec![0, 1, 2],
+    ///             vec![3, 4, 5],
+    ///             vec![6, 7, 8],
+    ///             vec![9, 10, 11],
+    ///             vec![12, 13, 14],
+    /// ];
+    /// let mut gridoptions = GridOptions {
+    ///        origin: Origin::LowerLeft,
+    ///        inverted_y: true,
+    ///        neighbor_ybased: true,
+    /// };
+    /// let grid = Grid::new(vec.clone(), Some(gridoptions.clone())).expect("failed to import 2d vec");
+    ///
+    /// // (2,1) is coordinate for 11, above (y+1)that is 14
     /// let up = grid.get_up((2, -1));
     /// assert_eq!(up, Some(&14));
     /// // Note how this is different from the previous example.
     /// assert_eq!(grid.get((2, -4)), Some(&2));
     /// assert_eq!(grid.get_up((2, -4)), Some(&5));
+    ///
+    /// gridoptions.neighbor_ybased = false;
+    /// let grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
+    ///
+    /// // (2,1) is coordinate for 11, above (relative) is 8
+    /// let up = grid.get_up((2, -1));
+    /// assert_eq!(up, Some(&8));
+    /// // Note how this is different from the previous example.
+    /// assert_eq!(grid.get((2, -4)), Some(&2));
+    /// assert_eq!(grid.get_up((2, -4)), None);
     /// ```
     pub fn get_up<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.up_idx(index).ok()?;
@@ -215,7 +270,7 @@ impl<T> Grid<T> {
 
     fn down_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         let index = index.grid_index(self)?;
-        if self.is_inverted_y() {
+        if self.is_inverted_y() && self.neighbor_ybased_invert() {
             self.actual_up_ind(index)
         } else {
             self.actual_down_ind(index)
@@ -245,9 +300,16 @@ impl<T> Grid<T> {
             .ok_or(GridError::IndexOutOfBounds)
     }
 
+    fn neighbor_ybased_invert(&self) -> bool {
+        self.options
+            .as_ref()
+            .and_then(|options| Some(options.neighbor_ybased))
+            .unwrap_or(NEIGHBOR_Y_BASED)
+    }
+
     fn up_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         let index = index.grid_index(self)?;
-        if self.is_inverted_y() {
+        if self.is_inverted_y() && self.neighbor_ybased_invert() {
             self.actual_down_ind(index)
         } else {
             self.actual_up_ind(index)
@@ -296,10 +358,12 @@ impl<T> Grid<T> {
         }
     }
 
+    /// Iterates over all elements
     pub fn iter<'b, 'a: 'b>(&'a self) -> impl Iterator<Item = &'a T> + 'b {
         self.items.iter()
     }
 
+    /// Mutable iterator over all elements
     pub fn iter_mut<'b, 'a: 'b>(&'a mut self) -> impl Iterator<Item = &'a mut T> + 'b {
         self.items.iter_mut()
     }
@@ -336,7 +400,8 @@ impl<T> Grid<T> {
     /// ];
     /// let gridoptions = GridOptions {
     ///        origin: Origin::Center,
-    ///         ..GridOptions::default()
+    ///        inverted_y: false,
+    ///        ..GridOptions::default()
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
@@ -346,7 +411,6 @@ impl<T> Grid<T> {
     /// assert_eq!(iter.next(), Some(&5));
     /// assert_eq!(iter.next(), None)
     ///```
-
     pub fn row_iter<'b, 'a: 'b, I: Index>(&'a self, index: I) -> RowIter<'b, T> {
         let res = index.grid_index(&self);
         // Noop coverts invalid grid location Result into an iterator that returns None right way
@@ -368,7 +432,8 @@ impl<T> Grid<T> {
     /// ];
     /// let gridoptions = GridOptions {
     ///        origin: Origin::Center,
-    ///         ..GridOptions::default()
+    ///        inverted_y: false,
+    ///        ..GridOptions::default()
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
@@ -407,9 +472,7 @@ impl<T> Grid<T> {
         }
     }
 
-    /// Returns an vector of {Neighbor}s. Order is left, right, bottom, top of index called. The vec only
-    /// contains neighbors that are in grid, therefore calling this function on a item along the edge will only return 3 neighbors.
-    /// Order in which they are returned relative to the central location is not guarenteed, so if relative position is important, use the coordinate component.
+    /// Returns an `XyNeighbor` which are the four neighbors in cardinal directions from the called cell location
     /// ```
     /// use neighborgrid::*;
     /// let vec = vec![
@@ -421,7 +484,8 @@ impl<T> Grid<T> {
     /// ];
     /// let gridoptions = GridOptions {
     ///        origin: Origin::Center,
-    ///         ..GridOptions::default()
+    ///        inverted_y: false,
+    ///        ..GridOptions::default()
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
@@ -452,12 +516,13 @@ impl<T> Grid<T> {
     ///     vec![16, 17, 18, 19],
     /// ];
     /// let gridoptions = GridOptions {
-    ///     origin: Origin::Center,
-    ///     inverted_y: false,
+    ///     origin: Origin::UpperLeft,
+    ///     inverted_y: true,
+    ///     neighbor_ybased: false
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     /// let neighbors = grid
-    ///     .all_around_neighbors((-2, 1))
+    ///     .all_around_neighbors((0, 1))
     ///     .expect("was not a valid coodinate"); // Neighbors of the item with 4 in it.
     /// assert_eq!(neighbors.upleft, None);
     /// assert_eq!(neighbors.up, Some(&0));
@@ -515,10 +580,6 @@ pub(crate) fn col_number<T>(grid: &Grid<T>, index: usize) -> usize {
     index % grid.cols as usize
 }
 
-pub(crate) fn row_col_number<T>(grid: &Grid<T>, index: usize) -> (usize, usize) {
-    (row_number(grid, index), col_number(grid, index))
-}
-
 pub(crate) fn row_start_index<T>(grid: &Grid<T>, index: usize) -> usize {
     row_number(grid, index) * grid.cols as usize
 }
@@ -540,6 +601,7 @@ mod grid_tests {
         ];
         let gridoptions = GridOptions {
             origin: Origin::Center,
+            inverted_y: false,
             ..GridOptions::default()
         };
         let grid = Grid::new(vec, Some(gridoptions));
@@ -704,6 +766,7 @@ mod grid_tests {
             let gridoptions = GridOptions {
                 origin: Origin::Center,
                 inverted_y: false,
+                ..GridOptions::default()
             };
             let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
             let neighbors = grid

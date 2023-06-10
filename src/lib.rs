@@ -3,10 +3,11 @@ mod error;
 mod grid;
 mod index;
 mod intogrid;
-pub mod origin;
+mod origin;
 mod row_iters;
-pub mod xyneightbor;
+mod xyneightbor;
+pub use error::GridError;
 pub use grid::{Grid, GridOptions, Origin};
-pub use xyneightbor::XyNeighbor;
-
-
+pub use index::{Coordinates, Index};
+pub use intogrid::IntoGrid;
+pub use xyneightbor::{AllAroundNeighbor, XyNeighbor};
