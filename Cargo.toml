@@ -2,10 +2,12 @@
 name = "neighborgrid"
 version = "0.1.0"
 edition = "2021"
-author = "Timothy Reed"
+author = "Timothy Reed <thetimmyreed@gmail.com>"
+description = "A 2-D grid datastructure with easy to use iterators and adjacent cell methods"
 license = "MIT"
 keywords = ["grid", "collection", "iterators", "2d"]
 categories = ["data-structures"]
 publish = true
+
 
 [dependencies]
