@@ -3,5 +3,9 @@ name = "neighborgrid"
 version = "0.1.0"
 edition = "2021"
 author = "Timothy Reed"
+license = "MIT"
+keywords = ["grid", "collection", "iterators", "2d"]
+categories = ["data-structures"]
+publish = true
 
 [dependencies]

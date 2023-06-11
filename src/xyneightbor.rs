@@ -71,6 +71,7 @@ impl<'a, T> AllAroundNeighbor<'a, T> {
     }
 }
 
+
 pub struct AllAroundNeighIterator<'a, V> {
     refs: [&'a V; 8],
     current: usize,

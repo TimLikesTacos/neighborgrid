@@ -23,6 +23,8 @@ pub struct Grid<T> {
 }
 
 /// Custom configuration of the grid.  For most grids out there, with x and y values always positive, an `origin: Origin::UpperLeft` and `inverted_y: true` is the best fit, and therefore is the default setting.
+/// `wrap_x` and `wrap_y` properties, if true wrap around the grid when calling `get_up` or `xy_neighbor` or any other method
+/// that returns neighbors of a called cell.  These parameters do not affect iterators.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GridOptions {
     pub origin: Origin,
@@ -217,36 +219,43 @@ impl<T> Grid<T> {
     /// assert_eq!(grid.get((2, -4)), Some(&2));
     /// assert_eq!(grid.get_up((2, -4)), None);
     /// ```
+    #[inline]
     pub fn get_up<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.up_idx(index).ok()?;
         Some(&self.items[idx])
     }
 
+    #[inline]
     pub fn get_down<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.down_idx(index).ok()?;
         Some(&self.items[idx])
     }
 
+    #[inline]
     pub fn get_left<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.left_idx(index).ok()?;
         Some(&self.items[idx])
     }
 
+    #[inline]
     pub fn get_right<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.right_idx(index).ok()?;
         Some(&self.items[idx])
     }
 
+    #[inline]
     pub fn get_upleft<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.upleft_idx(index).ok()?;
         Some(&self.items[idx])
     }
 
+    #[inline]
     pub fn get_upright<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.upright_idx(index).ok()?;
         Some(&self.items[idx])
     }
 
+    #[inline]
     pub fn get_downleft<I: Index>(&self, index: I) -> Option<&T> {
         let idx = self.downleft_idx(index).ok()?;
         Some(&self.items[idx])
@@ -422,6 +431,12 @@ impl<T> Grid<T> {
     #[inline]
     pub fn iter<'b, 'a: 'b>(&'a self) -> impl Iterator<Item = &'a T> + 'b {
         self.items.iter()
+    }
+
+    /// Iterates over all elements
+    #[inline]
+    pub fn into_iter(self) -> impl Iterator<Item = T> {
+        self.items.into_iter()
     }
 
     /// Mutable iterator over all elements
