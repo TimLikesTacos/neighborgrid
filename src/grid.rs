@@ -9,6 +9,8 @@ use crate::xyneightbor::AllAroundNeighbor;
 pub use crate::xyneightbor::XyNeighbor;
 
 const NEIGHBOR_Y_BASED: bool = true;
+const DEFAULT_WRAP: bool = false;
+
 /// A collection that represents a 2-D grid with equal amount of cells in each row and equal number of cells in each column.  Supports different origin (location of 0,0) configurations,
 /// and includes methods to get neighbors of cells, iterators, and more.  Behind the scenes, the data is stored in a 1-D `Vec` to improve performance, but interaction with grid is done through normal (x,y)
 /// grid location methods.
@@ -26,6 +28,8 @@ pub struct GridOptions {
     pub origin: Origin,
     pub inverted_y: bool,
     pub neighbor_ybased: bool,
+    pub wrap_x: bool,
+    pub wrap_y: bool,
 }
 
 impl Default for GridOptions {
@@ -34,6 +38,8 @@ impl Default for GridOptions {
             origin: Origin::default(),
             inverted_y: true,
             neighbor_ybased: NEIGHBOR_Y_BASED,
+            wrap_x: DEFAULT_WRAP,
+            wrap_y: DEFAULT_WRAP,
         }
     }
 }
@@ -49,6 +55,8 @@ impl<T> Grid<T> {
         Ok(grid)
     }
 
+    /// Already have a 1-D Vec for your grid?  Use this method to create a `Grid`, just specify how many rows and columns.  
+    /// Returns Err if the vec size is not equal to the product of the rows and columns
     pub fn new_from_1d(
         vec: Vec<T>,
         columns: usize,
@@ -137,6 +145,7 @@ impl<T> Grid<T> {
     ///        origin: Origin::LowerLeft,
     ///        inverted_y: false,
     ///        neighbor_ybased: true,
+    ///        ..GridOptions::default()
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
@@ -161,6 +170,7 @@ impl<T> Grid<T> {
     ///        origin: Origin::LowerLeft,
     ///        inverted_y: false,
     ///        neighbor_ybased: false,
+    ///        ..GridOptions::default()
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     ///
@@ -186,6 +196,7 @@ impl<T> Grid<T> {
     ///        origin: Origin::LowerLeft,
     ///        inverted_y: true,
     ///        neighbor_ybased: true,
+    ///        ..GridOptions::default()
     /// };
     /// let grid = Grid::new(vec.clone(), Some(gridoptions.clone())).expect("failed to import 2d vec");
     ///
@@ -311,7 +322,11 @@ impl<T> Grid<T> {
         if res < self.size() {
             Ok(res)
         } else {
-            Err(GridError::IndexOutOfBounds)
+            if self.options.wrap_y {
+                Ok(res - self.size())
+            } else {
+                Err(GridError::IndexOutOfBounds)
+            }
         }
     }
 
@@ -326,9 +341,16 @@ impl<T> Grid<T> {
     }
 
     fn actual_up_ind(&self, index: usize) -> Result<usize, GridError> {
-        index
-            .checked_sub(self.cols)
-            .ok_or(GridError::IndexOutOfBounds)
+        match index.checked_sub(self.cols) {
+            Some(v) => Ok(v),
+            None => {
+                if self.options.wrap_y {
+                    Ok(index + self.size() - self.cols)
+                } else {
+                    Err(GridError::IndexOutOfBounds)
+                }
+            }
+        }
     }
 
     #[inline]
@@ -358,7 +380,11 @@ impl<T> Grid<T> {
     fn left_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         let index = index.grid_index(self)?;
         if index == 0 || index % self.cols == 0 {
-            Err(GridError::IndexOutOfBounds)
+            if self.options.wrap_x {
+                Ok(index + self.columns() - 1)
+            } else {
+                Err(GridError::IndexOutOfBounds)
+            }
         } else {
             Ok(index - 1)
         }
@@ -367,7 +393,11 @@ impl<T> Grid<T> {
     fn right_idx<I: Index>(&self, index: I) -> Result<usize, GridError> {
         let index = index.grid_index(self)? + 1;
         if index == self.size() || index % self.cols == 0 {
-            Err(GridError::IndexOutOfBounds)
+            if self.options.wrap_x {
+                Ok(index - self.columns())
+            } else {
+                Err(GridError::IndexOutOfBounds)
+            }
         } else {
             Ok(index)
         }
@@ -553,6 +583,29 @@ impl<T> Grid<T> {
 
     /// Divides the grid, as specified by `divisor`, and produces `divisor * divisor` amount of sections.  For example, if `divisor` is `2`, then
     /// the grid is divided into quadrants.  Making a Sudoku puzzle and want 9 sections (each 3x3) for your 9x9 grid?  Use a `divisor` of `3`.
+    /// ```
+    /// use neighborgrid::*;
+    /// let mut vec = vec![];
+    ///
+    ///for i in 1..=81 {
+    ///    vec.push(i);
+    ///}
+    ///
+    ///let grid = Grid::new_from_1d(vec, 9, 9, None).unwrap();
+    ///
+    ///let mut iter = grid.nrant_iter(3, (1,1));
+    ///assert_eq!(iter.next(), Some(Some(&1)));
+    ///assert_eq!(iter.next(), Some(Some(&2)));
+    ///assert_eq!(iter.next(), Some(Some(&3)));
+    ///assert_eq!(iter.next(), Some(Some(&10)));
+    ///assert_eq!(iter.next(), Some(Some(&11)));
+    ///assert_eq!(iter.next(), Some(Some(&12)));
+    ///assert_eq!(iter.next(), Some(Some(&19)));
+    ///assert_eq!(iter.next(), Some(Some(&20)));
+    ///assert_eq!(iter.next(), Some(Some(&21)));
+    ///assert_eq!(iter.next(), None);
+    ///```
+
     pub fn nrant_iter<'b, 'a: 'b, I: Index>(
         &'a self,
         divisor: usize,
@@ -588,6 +641,31 @@ impl<T> Grid<T> {
     /// assert_eq!(neighbors.left, None);
     /// assert_eq!(neighbors.right, Some(&13));
     ///```
+    /// If `GridOptions` `x_wrap` and / or `y_wrap` are true, then the wrapped neighbors will be returned
+    /// ```
+    /// use neighborgrid::*;
+    /// let vec = vec![
+    ///             vec![0, 1, 2],
+    ///             vec![3, 4, 5],
+    ///             vec![6, 7, 8],
+    ///             vec![9, 10, 11],
+    ///             vec![12, 13, 14],
+    /// ];
+    /// let gridoptions = GridOptions {
+    ///        origin: Origin::Center,
+    ///        inverted_y: false,
+    ///        wrap_x: true, // turn on wrapping
+    ///        wrap_y: true,
+    ///        ..GridOptions::default()
+    /// };
+    /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
+    ///
+    /// let neighbors = grid.xy_neighbors((-1,-2)).expect("was not a valid coodinate"); // Neighbors of the item with 12 in it.
+    /// assert_eq!(neighbors.up, Some(&9));
+    /// assert_eq!(neighbors.down, Some(&0));
+    /// assert_eq!(neighbors.left, Some(&14));
+    /// assert_eq!(neighbors.right, Some(&13));
+    ///```
     pub fn xy_neighbors<I: Index>(&self, index: I) -> Result<XyNeighbor<'_, T>, GridError> {
         let index = index.grid_index(&self)?;
         Ok(XyNeighbor {
@@ -611,7 +689,8 @@ impl<T> Grid<T> {
     /// let gridoptions = GridOptions {
     ///     origin: Origin::UpperLeft,
     ///     inverted_y: true,
-    ///     neighbor_ybased: false
+    ///     neighbor_ybased: false,
+    ///     ..GridOptions::default()
     /// };
     /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
     /// let neighbors = grid
@@ -623,6 +702,38 @@ impl<T> Grid<T> {
     /// assert_eq!(neighbors.left, None);
     /// assert_eq!(neighbors.right, Some(&5));
     /// assert_eq!(neighbors.downleft, None);
+    /// assert_eq!(neighbors.down, Some(&8));
+    /// assert_eq!(neighbors.downright, Some(&9));
+    ///```
+    /// Using `GridOptions` to enable wrap:
+    ///
+    /// ```
+    /// use neighborgrid::*;
+    /// let vec = vec![
+    ///     vec![0, 1, 2, 3],
+    ///     vec![4, 5, 6, 7],
+    ///     vec![8, 9, 10, 11],
+    ///     vec![12, 13, 14, 15],
+    ///     vec![16, 17, 18, 19],
+    /// ];
+    /// let gridoptions = GridOptions {
+    ///     origin: Origin::UpperLeft,
+    ///     inverted_y: true,
+    ///     neighbor_ybased: false,
+    ///     wrap_x: true,
+    ///     wrap_y:true,
+    ///     ..GridOptions::default()
+    /// };
+    /// let mut grid = Grid::new(vec, Some(gridoptions)).expect("failed to import 2d vec");
+    /// let neighbors = grid
+    ///     .all_around_neighbors((0, 1))
+    ///     .expect("was not a valid coodinate"); // Neighbors of the item with 4 in it.
+    /// assert_eq!(neighbors.upleft, Some(&3));
+    /// assert_eq!(neighbors.up, Some(&0));
+    /// assert_eq!(neighbors.upright, Some(&1));
+    /// assert_eq!(neighbors.left, Some(&7));
+    /// assert_eq!(neighbors.right, Some(&5));
+    /// assert_eq!(neighbors.downleft, Some(&11));
     /// assert_eq!(neighbors.down, Some(&8));
     /// assert_eq!(neighbors.downright, Some(&9));
     ///```
@@ -696,6 +807,24 @@ mod grid_tests {
         let gridoptions = GridOptions {
             origin: Origin::Center,
             inverted_y: false,
+            ..GridOptions::default()
+        };
+        let grid = Grid::new(vec, Some(gridoptions));
+        grid.unwrap()
+    }
+
+    fn wrap_grid(wrap_x: bool, wrap_y: bool) -> Grid<i32> {
+        let vec = vec![
+            vec![0, 1, 2],
+            vec![3, 4, 5],
+            vec![6, 7, 8],
+            vec![9, 10, 11],
+            vec![12, 13, 14],
+        ];
+        let gridoptions = GridOptions {
+            wrap_x,
+            wrap_y,
+            neighbor_ybased: false,
             ..GridOptions::default()
         };
         let grid = Grid::new(vec, Some(gridoptions));
@@ -776,6 +905,37 @@ mod grid_tests {
             assert_eq!(grid.get_right((-2, 0)), None);
         }
 
+        #[test]
+        fn should_get_up_wrap() {
+            let grid = wrap_grid(false, true);
+            assert_eq!(grid.get_up((0, 1)), Some(&0i32));
+            assert_eq!(grid.get_up((0, 0)), Some(&12i32));
+            assert_eq!(grid.get_up((0, 2)), Some(&3i32));
+        }
+
+        #[test]
+        fn should_get_down_wrap() {
+            let grid = wrap_grid(false, true);
+            assert_eq!(grid.get_down((0, 3)), Some(&12i32));
+            assert_eq!(grid.get_down((0, 4)), Some(&0i32));
+            assert_eq!(grid.get_down((0, 0)), Some(&3i32));
+        }
+
+        #[test]
+        fn should_get_left_wrap() {
+            let grid = wrap_grid(true, false);
+            assert_eq!(grid.get_left((1, 0)), Some(&0i32));
+            assert_eq!(grid.get_left((0, 0)), Some(&2i32));
+            assert_eq!(grid.get_left((2, 0)), Some(&1i32));
+        }
+
+        #[test]
+        fn should_get_right_wrap() {
+            let grid = wrap_grid(true, false);
+            assert_eq!(grid.get_right((1, 0)), Some(&2i32));
+            assert_eq!(grid.get_right((2, 0)), Some(&0i32));
+            assert_eq!(grid.get_right((0, 0)), Some(&1i32));
+        }
         #[test]
         fn basic_quadrant() {
             let vec = vec![vec![0, 1], vec![2, 3]];
