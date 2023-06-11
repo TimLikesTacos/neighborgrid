@@ -2,4 +2,4 @@ A collection that represents a 2-D grid with equal amount of cells in each row a
 
 See the documentation for more details.
 
-This has just been a result of messing around with grid problem, nothing high-end scientific / mathmatical / or production based.  Enojy!
+This has just been a result of messing around with grid problem, nothing high-end scientific / mathmatical / or production based.  Enjoy!
